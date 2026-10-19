@@ -22,14 +22,27 @@ files 记录原始输入绝对路径、项目内 archive_path、格式、编码�
 | source_fact | text 与非空 source_unit_ids；必须为原文真实事实，设计注记不能写成原作事实 |
 | setting | id、description；可补空间布局、道具、参考路径/指纹与设计注记 |
 | event | id、description（严格对应原著真实事件，绝不捏造新情节）、非空 source_unit_ids；每个事件必须在画格中出现 |
-| scene | id、chapter_id、setting_id；可补时刻、读者/人物知情状态、叙事层级 |
-| panel | id、chapter_id、scene_id、source_unit_ids、event_ids、cast、action、shot、space、expression、state_before、state_after、dialogue（台词对白/旁白必须严格忠实于原著语义，严禁私自编造加戏）；可补 visual_plan 对象记录视觉中心、层次与局部色彩等 |
+| scene | id、chapter_id、setting_id；可补时刻、叙事层级、`reader_knows` / `character_knows`（读者与角色此刻知道什么）、`nsfw_level`（0-3） |
+| panel | id、chapter_id、scene_id、source_unit_ids、event_ids、cast、action、shot、space、expression、state_before、state_after、dialogue（台词对白/旁白必须严格忠实于原著语义，严禁私自编造加戏）；可补 visual_plan 对象记录视觉中心、层次与局部色彩等；可补 `nsfw_level`（0-3，覆盖所在场景的级别） |
 | page | id、chapter_id、按阅读顺序排列的 panel_ids；rows 可选，仅表达阅读顺序。页内格数不设上限 |
 | continuity_handover | opening_state 与 closing_state，记录本卷开场继承与结末状态（人物状态、世界规则、未回收伏笔），供跨卷交接审查核验 |
 | source_disposition | unit_id、kind=context/repetition/paratext、reason；context 还需真实 panel_ids |
 | chapter_adaptation | 每个正文章恰好一条：chapter_id、document_path、document_sha256、details、unit_audits；具体字段与呈现证据见 [detail-records.md](detail-records.md) |
 
 panels 数组就是本卷镜头顺序；pages 按此顺序覆盖每格恰好一次，不能遗漏、重复或改变顺序。相同章号的不同卷使用不同内部 chapter_id。所有分镜内容严格忠于原著，严禁胡编乱造。
+
+### 内容分级
+
+`nsfw_level` 表示该场景或该格的性内容强度，取整数 0–3：
+
+| 级别 | 含义 |
+|---|---|
+| 0 | 无性内容 |
+| 1 | 暗示、擦边，不含明确描写 |
+| 2 | 明确的性描写，但克制 |
+| 3 | 露骨描写 |
+
+场景级别写在 `scene.nsfw_level`；同一场景内某格尺度不同时，用 `panel.nsfw_level` 覆盖。缺省视为 0。延长格只有在有效级别 ≥ 2 时才成立，且不得高于源格。
 
 编剧工作按章递进：当前状态目录的 `docs/adaptation/<chapter_id>.md` 保存该章细节映射、逐场详细剧情剧本、格数依据、核查记录与章末交接；`scripts/chapters/<chapter_id>.json` 保存含 events/scenes/panels/pages/source_dispositions/chapter_adaptations 的详细章节草稿，相关人物/场景档案在本卷工作稿中维护。章节文件是工作材料，不另建 project.json 或伪造独立锁；初次编写直接保存草稿，用 `check-adaptation` 核对本章，再用 `set-script` 导入已汇总的工作稿。`set-script-chapter` 校验整卷结构，适用于完整结构稿上的单章更新，必须带对应章细节记录。最终关卡仍要求本卷全部章节与同版本审查。
 

@@ -50,6 +50,16 @@ REVIEW_CHECKS = {
     'continuity': ['causality', 'timeline', 'identity', 'states', 'knowledge_and_reveals'],
     'comic': ['drawable_panels', 'dialogue_and_speakers', 'reading_order', 'pacing', 'text_density'],
 }
+NSFW_LEVELS = (0, 1, 2, 3)
+
+
+def nsfw_level_error(value, path):
+    if type(value) is not int or value not in NSFW_LEVELS:
+        return (path + ': expected integer 0-3 '
+                '(0 none, 1 implied, 2 explicit restrained, 3 explicit).')
+    return None
+
+
 VOLUME_HEADING = re.compile(r'^(?:第[0-9零〇一二三四五六七八九十百千万两壹贰叁肆伍陆柒捌玖拾佰\s]+[卷部篇集].*'
                             r'|(?:book|volume|part)\s+[\wIVXLC0-9]+.*)$', re.I)
 
@@ -573,6 +583,10 @@ def script_errors(project, root=None):
         if not isinstance(scene_props, list) or any(not nonempty(prop_id) or prop_id not in registries['props'] for prop_id in scene_props):
             errors.append(f'script.scenes[{scene_id}].prop_ids: unknown prop ID or malformed array.')
         entity_references(scene, f'script.scenes[{scene_id}]')
+        if 'nsfw_level' in scene:
+            message = nsfw_level_error(scene.get('nsfw_level'), f'script.scenes[{scene_id}].nsfw_level')
+            if message:
+                errors.append(message)
 
     previous_states = {}
     used_events, covered, chapter_panels = set(), set(), set()
@@ -595,6 +609,10 @@ def script_errors(project, root=None):
                 errors.append(f'script.panels[{pid}].{key}: required nonempty string.')
         if 'visual_plan' in panel and not isinstance(panel['visual_plan'], dict):
             errors.append(f'script.panels[{pid}].visual_plan: expected an object.')
+        if 'nsfw_level' in panel:
+            message = nsfw_level_error(panel.get('nsfw_level'), f'script.panels[{pid}].nsfw_level')
+            if message:
+                errors.append(message)
         try:
             panel_aspect_ratio(panel)
         except GateError as error:

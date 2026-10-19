@@ -182,6 +182,27 @@ class PipelineTests(unittest.TestCase):
         self.invoke('lock-script')
 
 
+    def test_nsfw_level_validation(self):
+        """nsfw_level accepts 0-3 on scenes and panels and rejects anything else."""
+        script = self.prepare_script()
+        script['scenes'][0]['nsfw_level'] = 4
+        script['panels'][0]['nsfw_level'] = -1
+        self.invoke('set-script', file=self.json_file(script))
+        res = self.invoke('check-script')
+        hits = [e for e in res['errors'] if 'nsfw_level' in e]
+        self.assertEqual(2, len(hits), res['errors'])
+
+        script['scenes'][0]['nsfw_level'] = 2
+        script['panels'][0]['nsfw_level'] = 3
+        self.invoke('set-script', file=self.json_file(script))
+        res = self.invoke('check-script')
+        self.assertFalse([e for e in res['errors'] if 'nsfw_level' in e], res['errors'])
+
+        script['panels'][0]['nsfw_level'] = 'high'
+        self.invoke('set-script', file=self.json_file(script))
+        res = self.invoke('check-script')
+        self.assertTrue([e for e in res['errors'] if 'nsfw_level' in e])
+
     def test_pre_art_gate_rejects_empty_and_partial_script(self):
         with self.assertRaises(cp.GateError):
             self.invoke('assert-art')
