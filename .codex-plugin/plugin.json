@@ -1,0 +1,32 @@
+{
+  "name": "novel-to-comic",
+  "version": "2.6.1",
+  "description": "Faithful novel adaptation with polished whole-page prompts, one image call per page and native phone-reading pages.",
+  "author": {
+    "name": "xdd666t"
+  },
+  "repository": "https://github.com/aiskyhub/novel_to_comic",
+  "keywords": [
+    "codex",
+    "plugin",
+    "novel-to-comic",
+    "comic",
+    "manga",
+    "storyboard"
+  ],
+  "skills": "./",
+  "interface": {
+    "displayName": "Novel to Comic",
+    "shortDescription": "Convert novels into complete comics faithfully.",
+    "longDescription": "Full script and source review first; polished page prompts; one call creates the entire phone-reading comic page with all panels and lettering; whole-page review and native-page export.",
+    "developerName": "xdd666t",
+    "category": "Creative",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "将我提供的小说忠实改编为完整漫画。"
+    ]
+  }
+}

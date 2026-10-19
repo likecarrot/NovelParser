@@ -1,0 +1,61 @@
+{
+  "stage_range": {
+    "start_chapter_id": "",
+    "end_chapter_id": "",
+    "chapter_count": 0,
+    "stage_script_hash": ""
+  },
+  "stage_script_hash": "",
+  "reviewed_chapters": [],
+  "anti_formalism_attestation": {
+    "prohibit_rubber_stamp": true,
+    "statement": "本审查依据原著小说文本与分镜进行客观核验，杜绝形式主义自评与虚构引句；重大缺陷必须闭环整改或由总导演记录裁定理由。"
+  },
+  "round_1_initial_audit": {
+    "audit_objective": "对本批次各章分镜进行原著忠实度、场景空间、叙事节奏与对白生动度独立审查",
+    "initial_stage_script_hash": "",
+    "initial_panels_snapshot": [],
+    "auditors": [
+      {
+        "auditor_id": "auditor_a",
+        "conversation_id": null,
+        "subagent_role": "Script Auditor A",
+        "model_used": "",
+        "scores": {
+          "scene_descriptions": 0,
+          "climax_plot_beats": 0,
+          "total_score": 0
+        },
+        "deductions": [],
+        "issues": []
+      },
+      {
+        "auditor_id": "auditor_b",
+        "conversation_id": null,
+        "subagent_role": "Script Auditor B",
+        "model_used": "",
+        "scores": {
+          "humor_and_gags": 0,
+          "character_dialogue": 0,
+          "total_score": 0
+        },
+        "deductions": [],
+        "issues": []
+      }
+    ],
+    "initial_verdict": "PENDING"
+  },
+  "screenwriter_revisions": {
+    "revision_summary": "",
+    "reviser_id": "subagent_reviser",
+    "conversation_id": null,
+    "applied_fixes": [],
+    "adjudications": []
+  },
+  "round_2_verification": {
+    "verification_summary": "",
+    "auditors_recheck": [],
+    "stage_approved": false,
+    "approved_at": null
+  }
+}
