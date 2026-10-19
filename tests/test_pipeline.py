@@ -37,7 +37,7 @@ def fixture_script(source):
     for chapter in source['chapters']:
         if chapter['has_body']:
             script['scenes'].append({'id': 'scene-' + chapter['id'], 'chapter_id': chapter['id'], 'setting_id': 'room-a'})
-    state = {'form': 'base', 'costume': 'coat-a', 'injuries': [], 'items': [], 'location': 'room-a', 'knowledge': []}
+    state = {'form': 'base', 'clothing': 'coat-a', 'condition': 'normal', 'injuries': [], 'held': []}
     for i, unit in enumerate(body, 1):
         event_id = f'ev{i}'
         pid = f'p{i}'
@@ -182,6 +182,31 @@ class PipelineTests(unittest.TestCase):
         self.invoke('lock-script')
 
 
+    def test_state_field_contract(self):
+        """State uses fixed core fields; unknown keys must move under extension."""
+        script = self.prepare_script()
+        res = self.invoke('check-script')
+        self.assertFalse([e for e in res['errors'] if 'unknown state field' in e], res['errors'])
+
+        for side in ('state_before', 'state_after'):
+            script['panels'][0][side]['char-a']['costume'] = 'coat-b'
+        self.invoke('set-script', file=self.json_file(script))
+        res = self.invoke('check-script')
+        self.assertTrue([e for e in res['errors'] if 'unknown state field' in e], res['errors'])
+
+        for side in ('state_before', 'state_after'):
+            del script['panels'][0][side]['char-a']['costume']
+            script['panels'][0][side]['char-a']['extension'] = {'hair': 'loose'}
+        self.invoke('set-script', file=self.json_file(script))
+        res = self.invoke('check-script')
+        self.assertFalse([e for e in res['errors'] if 'unknown state field' in e], res['errors'])
+
+        for side in ('state_before', 'state_after'):
+            script['panels'][0][side]['char-a']['injuries'] = 'bruise'
+        self.invoke('set-script', file=self.json_file(script))
+        res = self.invoke('check-script')
+        self.assertTrue([e for e in res['errors'] if 'injuries' in e], res['errors'])
+
     def test_extension_panel_rules(self):
         """Extension panels need a real source, explicit fields, matching state, and nsfw level >= 2."""
         script = self.prepare_script()
@@ -312,11 +337,11 @@ class PipelineTests(unittest.TestCase):
     def test_state_transition_needs_source_evidence(self):
         script = self.prepare_script()
         for p in script['panels'][1:]:
-            p['state_before']['char-a']['costume'] = 'coat-b'
-            p['state_after']['char-a']['costume'] = 'coat-b'
+            p['state_before']['char-a']['clothing'] = 'coat-b'
+            p['state_after']['char-a']['clothing'] = 'coat-b'
         self.invoke('set-script', file=self.json_file(script))
         self.assertTrue(any('state' in x and ('change' in x or 'transition' in x) for x in self.invoke('check-script')['errors']))
-        script['panels'][1]['state_transitions'] = [{'character_id': 'char-a', 'fields': ['costume'],
+        script['panels'][1]['state_transitions'] = [{'character_id': 'char-a', 'fields': ['clothing'],
                                                   'reason': '夹具换装', 'source_unit_ids': script['panels'][1]['source_unit_ids']}]
         self.invoke('set-script', file=self.json_file(script))
         self.assertEqual([], self.invoke('check-script')['errors'])

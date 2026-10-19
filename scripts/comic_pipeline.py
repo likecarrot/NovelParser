@@ -325,6 +325,25 @@ def panel_aspect_ratio(panel):
 
 
 EXTENSION_KINDS = ('duration', 'detail', 'reaction')
+STATE_FIELDS = ('form', 'clothing', 'exposure', 'condition', 'injuries', 'held', 'posture')
+STATE_LIST_FIELDS = ('injuries', 'held')
+
+
+def state_shape_errors(state, path):
+    """Fixed core fields plus a free-form extension bucket."""
+    if not isinstance(state, dict):
+        return [path + ': expected an object.']
+    errors = []
+    allowed = set(STATE_FIELDS) | {'extension'}
+    for key in sorted(set(state) - allowed):
+        errors.append(f'{path}.{key}: unknown state field; use {", ".join(STATE_FIELDS)} '
+                      f'or put custom fields under extension.')
+    for key in STATE_LIST_FIELDS:
+        if key in state and not isinstance(state[key], list):
+            errors.append(f'{path}.{key}: expected an array.')
+    if 'extension' in state and not isinstance(state['extension'], dict):
+        errors.append(f'{path}.extension: expected an object.')
+    return errors
 
 
 def effective_nsfw(panel, scene):
@@ -792,6 +811,8 @@ def script_errors(project, root=None):
             if not isinstance(before, dict) or not before or not isinstance(after, dict) or not after:
                 errors.append(f'script.panels[{pid}].state_before/state_after[{cid}]: explicit nonempty objects required.')
                 continue
+            errors.extend(state_shape_errors(before, f'script.panels[{pid}].state_before[{cid}]'))
+            errors.extend(state_shape_errors(after, f'script.panels[{pid}].state_after[{cid}]'))
             form = before.get('form')
             if nonempty(form) and form not in version_ids:
                 errors.append(f'script.panels[{pid}].state_before[{cid}].form: unknown appearance version {form}.')

@@ -83,7 +83,27 @@ art_direction 的字段及决策方法见 [art-direction.md](art-direction.md)�
 
 rows 为画格 ID 数组的数组，展平后必须与 panel_ids 完全一致，只表达阅读顺序。不写 columns、aspect_ratio 或任何版面尺寸。
 
-状态按角色 ID 保存对象，例如 `{ "form":"base", "costume":"coat-a", "injuries":[], "items":[], "location":"room-a", "knowledge":[] }`。各 cast 都有 state_before/after。相邻出场的已记录状态发生变化时，在当前格 state_transitions 填 `{character_id,fields,reason,source_unit_ids}`，解释状态间变化；直接呈现的变化仍要在 action/events 中有依据。
+状态按角色 ID 保存对象，主字段固定：
+
+| 字段 | 含义 |
+|---|---|
+| `form` | 形态版本，必须匹配 `appearance_versions` |
+| `clothing` | 衣着，字符串或按部位的对象 |
+| `exposure` | 暴露程度 |
+| `condition` | 身体与精神状态 |
+| `injuries` | 伤势，数组 |
+| `held` | 持有物，数组 |
+| `posture` | 姿态 |
+
+非常规状态放进 `extension` 对象，不要新增顶层键。顶层出现未知字段会让 `check-script` 报错。
+
+每个 cast 角色都必须有非空的 `state_before` 与 `state_after`。相邻出场时字段发生变化，要在当前格用 `state_transitions` 解释：
+
+```json
+{"character_id": "bai_ling", "fields": ["clothing"], "reason": "原文写明胸罩被扯开", "source_unit_ids": ["u0045"]}
+```
+
+没有解释的字段变化会导致 `check-script` 报错，`lock-script` 无法通过。
 
 dialogue 为 `{kind,speaker,text,anchor?}`。kind 是 speech/thought/caption/sfx；speech/thought 的 speaker 必须在本格 cast 中。anchor 是 0..1 画面坐标，对应图中该说话人的位置；默认排版器使用其水平分量。文字原样保留，脚本自动添加说话人标识不改变对白正文。
 
