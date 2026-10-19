@@ -1,5 +1,5 @@
 {
-  "name": "novel-parser",
+  "name": "NovelParser",
   "version": "3.0.0",
   "description": "Faithful novel-to-storyboard adaptation: locked panel script, character state continuity, natural-language panel descriptions. No image generation and no model-specific prompts.",
   "author": {

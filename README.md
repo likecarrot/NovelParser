@@ -26,7 +26,7 @@
 ## 目录结构
 
 ```text
-novel_to_comic/
+NovelParser/
 ├── .codex-plugin/
 │   └── plugin.json                  # Codex 插件清单配置
 ├── SKILL.md                         # 技能主入口及指令说明
@@ -44,22 +44,14 @@ novel_to_comic/
 
 ## 安装与使用
 
-### 通过 Codex Marketplace 安装
+### 安装
 
-在 Codex 中添加 aiskyhub 市场源并安装：
-
-```bash
-# 添加市场
-codex plugin marketplace add aiskyhub/aiskyhub
-
-# 安装插件
-codex plugin install novel-to-comic@aiskyhub
-```
+把本目录放到技能目录下，保留 `SKILL.md`、`assets/`、`references/`、`roles/`、`scripts/` 的相对位置。
 
 ### 技能调用
 
 ```text
-$novel-to-comic 把我提供的小说改编成漫画分镜剧本。
+$NovelParser 把我提供的小说改编成漫画分镜剧本。
 ```
 
 ## 测试与校验

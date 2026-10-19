@@ -1,6 +1,6 @@
 # 角色体系与独立提示词目录指引 (Role System Directory)
 
-本目录为 `novel-to-comic` 工业化制作团队各岗位角色的**专属系统提示词库（Standalone Role Prompts）**。
+本目录为 `NovelParser` 工业化制作团队各岗位角色的**专属系统提示词库（Standalone Role Prompts）**。
 
 ## 核心设计铁律：角色物理隔离与单一提示词注入
 

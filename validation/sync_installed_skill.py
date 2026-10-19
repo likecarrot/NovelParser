@@ -9,8 +9,8 @@ from pathlib import Path
 def sync(target):
     source = Path(__file__).resolve().parents[1]
     target = target.expanduser().resolve()
-    if target.name != 'novel-to-comic' or target == source:
-        raise ValueError('Target must be a separate, explicitly named novel-to-comic skill directory.')
+    if target.name != 'NovelParser' or target == source:
+        raise ValueError('Target must be a separate, explicitly named NovelParser skill directory.')
     owned_dirs = {'agents','assets','references','scripts','tests','.codex-plugin','validation','README','roles'}
     owned_files = {'SKILL.md','README.md','VERSION.json','.gitignore'}
     # 清理已废弃的 role 目录
@@ -49,5 +49,5 @@ def sync(target):
 
 if __name__ == '__main__':
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--target',type=Path,default=Path('C:/Users/xdd66/.codex/skills/novel-to-comic'))
+    parser.add_argument('--target',type=Path,default=Path.home() / '.codex/skills/NovelParser')
     print(json.dumps(sync(parser.parse_args().target),ensure_ascii=False))
