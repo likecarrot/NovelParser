@@ -347,6 +347,25 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual([], self.invoke('check-script')['errors'])
 
 
+    def test_state_break_blocks_lock(self):
+        """An unexplained state change must stop lock-script, not just warn."""
+        self.locked()
+        script = cp.project_load(self.root)['script']
+        for p in script['panels'][1:]:
+            p['state_before']['char-a']['clothing'] = 'coat-b'
+            p['state_after']['char-a']['clothing'] = 'coat-b'
+        self.invoke('set-script', file=self.json_file(script))
+        with self.assertRaises(cp.GateError) as ctx:
+            self.invoke('lock-script')
+        self.assertIn('state', str(ctx.exception))
+
+        script['panels'][1]['state_transitions'] = [{
+            'character_id': 'char-a', 'fields': ['clothing'],
+            'reason': '夹具换装', 'source_unit_ids': script['panels'][1]['source_unit_ids']}]
+        self.invoke('set-script', file=self.json_file(script))
+        errors = self.invoke('check-script')['errors']
+        self.assertFalse([e for e in errors if 'state_before' in e], errors)
+
     def test_major_unresolved_review_rejected(self):
         self.prepare_script()
         project = cp.project_load(self.root)
