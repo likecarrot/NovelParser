@@ -183,6 +183,22 @@ class PipelineTests(unittest.TestCase):
         self.invoke('lock-script')
 
 
+    def test_scene_knowledge_fields(self):
+        """reader_knows is a string array; character_knows keys must be real characters."""
+        script = self.prepare_script()
+        script['scenes'][0]['reader_knows'] = ['读者只知道甲在房间里']
+        script['scenes'][0]['character_knows'] = {'char-a': ['甲知道信封里是账单']}
+        self.invoke('set-script', file=self.json_file(script))
+        res = self.invoke('check-script')
+        self.assertFalse([e for e in res['errors'] if 'knows' in e], res['errors'])
+
+        script['scenes'][0]['reader_knows'] = 'not-a-list'
+        script['scenes'][0]['character_knows'] = {'unknown-x': ['x']}
+        self.invoke('set-script', file=self.json_file(script))
+        res = self.invoke('check-script')
+        hits = [e for e in res['errors'] if 'knows' in e]
+        self.assertGreaterEqual(len(hits), 2, res['errors'])
+
     def test_scene_text_required_and_natural(self):
         """scene_text is required, long enough, and free of model prompt syntax."""
         script = self.prepare_script()

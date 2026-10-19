@@ -335,6 +335,26 @@ MODEL_PROMPT_TOKENS = (
 SCENE_TEXT_MIN = 20
 
 
+def knowledge_errors(scene, path, character_ids):
+    """Reader and character knowledge, used to keep reveals from leaking early."""
+    errors = []
+    reader = scene.get('reader_knows')
+    if reader is not None:
+        if not isinstance(reader, list) or any(not nonempty(item) for item in reader):
+            errors.append(path + '.reader_knows: expected an array of nonempty strings.')
+    character = scene.get('character_knows')
+    if character is not None:
+        if not isinstance(character, dict):
+            errors.append(path + '.character_knows: expected an object keyed by character ID.')
+        else:
+            for cid, facts in character.items():
+                if cid not in character_ids:
+                    errors.append(f'{path}.character_knows[{cid}]: unknown character ID.')
+                if not isinstance(facts, list) or any(not nonempty(item) for item in facts):
+                    errors.append(f'{path}.character_knows[{cid}]: expected an array of nonempty strings.')
+    return errors
+
+
 def scene_text_errors(panel, path):
     """Panel prose must read as natural language, not model prompt syntax."""
     text = panel.get('scene_text')
@@ -741,6 +761,7 @@ def script_errors(project, root=None):
             message = nsfw_level_error(scene.get('nsfw_level'), f'script.scenes[{scene_id}].nsfw_level')
             if message:
                 errors.append(message)
+        errors.extend(knowledge_errors(scene, f'script.scenes[{scene_id}]', set(registries['characters'])))
 
     previous_states = {}
     used_events, covered, chapter_panels = set(), set(), set()

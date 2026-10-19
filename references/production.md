@@ -30,6 +30,12 @@
 
 分级依据原文实际描写程度，不按题材想当然。含蓄暗示标 1，明确但克制的标 2，露骨标 3。同一场景内尺度变化时，用 panel 级覆盖。
 
+## 读者知情
+
+场景可以写 `reader_knows` 与 `character_knows`，记录读者和角色各自知道什么。用途是防止身份延迟揭晓被提前破坏：读者还不知道某人是谁时，`scene_text` 只能用外观指称。
+
+这两个字段可选，但写了就要和原文的揭示进度一致。角色知道而读者不知道，正是悬念的来源。
+
 ## 状态账本
 
 每格的 `state_before` / `state_after` 记录角色可见状态。主字段固定为 `form`、`clothing`、`exposure`、`condition`、`injuries`、`held`、`posture`，特殊状态放进 `extension`，不要新增顶层键。
