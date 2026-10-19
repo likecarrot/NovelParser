@@ -327,6 +327,30 @@ def panel_aspect_ratio(panel):
 EXTENSION_KINDS = ('duration', 'detail', 'reaction')
 STATE_FIELDS = ('form', 'clothing', 'exposure', 'condition', 'injuries', 'held', 'posture')
 STATE_LIST_FIELDS = ('injuries', 'held')
+MODEL_PROMPT_TOKENS = (
+    'masterpiece', 'best quality', 'high quality', 'absurdres', 'newest,',
+    '<lora:', 'score_', '1girl', '1boy', '2girls', '2boys', '2people',
+    'solo,', 'nsfw,', 'explicit,', 'very aesthetic',
+)
+SCENE_TEXT_MIN = 20
+
+
+def scene_text_errors(panel, path):
+    """Panel prose must read as natural language, not model prompt syntax."""
+    text = panel.get('scene_text')
+    if not nonempty(text):
+        return [path + '.scene_text: required; describe the panel in plain language.']
+    errors = []
+    stripped = text.strip()
+    if len(stripped) < SCENE_TEXT_MIN:
+        errors.append(f'{path}.scene_text: too short ({len(stripped)} chars); '
+                      f'write at least {SCENE_TEXT_MIN} characters of description.')
+    lowered = stripped.lower()
+    for token in MODEL_PROMPT_TOKENS:
+        if token in lowered:
+            errors.append(f'{path}.scene_text: contains model prompt token "{token}"; '
+                          'write natural language instead.')
+    return errors
 
 
 def state_shape_errors(state, path):
@@ -737,6 +761,7 @@ def script_errors(project, root=None):
         for key in ('action', 'shot', 'space', 'expression'):
             if not nonempty(panel.get(key)):
                 errors.append(f'script.panels[{pid}].{key}: required nonempty string.')
+        errors.extend(scene_text_errors(panel, f'script.panels[{pid}]'))
         if 'visual_plan' in panel and not isinstance(panel['visual_plan'], dict):
             errors.append(f'script.panels[{pid}].visual_plan: expected an object.')
         if 'nsfw_level' in panel:

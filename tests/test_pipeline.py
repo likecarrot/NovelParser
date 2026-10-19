@@ -47,6 +47,7 @@ def fixture_script(source):
             'source_unit_ids': [unit['id']], 'event_ids': [event_id], 'cast': ['char-a'],
             'appearance_versions': {'char-a': 'base'},
             'action': unit['text'] + '：' + pid, 'shot': '中景', 'space': '人物位于测试房间中', 'expression': '平静',
+            'scene_text': '测试房间内，甲站在窗边，' + unit['text'] + '，左侧光线落在桌面上。',
             'state_before': {'char-a': copy.deepcopy(state)}, 'state_after': {'char-a': copy.deepcopy(state)},
             'dialogue': [{'kind': 'caption', 'text': unit['text']}]
         })
@@ -181,6 +182,27 @@ class PipelineTests(unittest.TestCase):
         self.add_reviews()
         self.invoke('lock-script')
 
+
+    def test_scene_text_required_and_natural(self):
+        """scene_text is required, long enough, and free of model prompt syntax."""
+        script = self.prepare_script()
+        res = self.invoke('check-script')
+        self.assertFalse([e for e in res['errors'] if 'scene_text' in e], res['errors'])
+
+        del script['panels'][0]['scene_text']
+        self.invoke('set-script', file=self.json_file(script))
+        res = self.invoke('check-script')
+        self.assertTrue([e for e in res['errors'] if 'scene_text' in e and 'required' in e], res['errors'])
+
+        script['panels'][0]['scene_text'] = '太短'
+        self.invoke('set-script', file=self.json_file(script))
+        res = self.invoke('check-script')
+        self.assertTrue([e for e in res['errors'] if 'too short' in e], res['errors'])
+
+        script['panels'][0]['scene_text'] = '测试房间内，masterpiece，甲站在窗边，光线从左侧照进来。'
+        self.invoke('set-script', file=self.json_file(script))
+        res = self.invoke('check-script')
+        self.assertTrue([e for e in res['errors'] if 'model prompt token' in e], res['errors'])
 
     def test_state_field_contract(self):
         """State uses fixed core fields; unknown keys must move under extension."""

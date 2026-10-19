@@ -23,13 +23,22 @@ files 记录原始输入绝对路径、项目内 archive_path、格式、编码�
 | setting | id、description；可补空间布局、道具、参考路径/指纹与设计注记 |
 | event | id、description（严格对应原著真实事件，绝不捏造新情节）、非空 source_unit_ids；每个事件必须在画格中出现 |
 | scene | id、chapter_id、setting_id；可补时刻、叙事层级、`reader_knows` / `character_knows`（读者与角色此刻知道什么）、`nsfw_level`（0-3） |
-| panel | id、chapter_id、scene_id、source_unit_ids、event_ids、cast、action、shot、space、expression、state_before、state_after、dialogue（台词对白/旁白必须严格忠实于原著语义，严禁私自编造加戏）；可补 visual_plan 对象记录视觉中心、层次与局部色彩等；可补 `nsfw_level`（0-3，覆盖所在场景的级别）；可补 `extension_of` / `extension_kind` / `progress` / `new_information` 组成延长格 |
+| panel | id、chapter_id、scene_id、source_unit_ids、event_ids、cast、action、shot、space、expression、scene_text、state_before、state_after、dialogue（台词对白/旁白必须严格忠实于原著语义，严禁私自编造加戏）；可补 visual_plan 对象记录视觉中心、层次与局部色彩等；可补 `nsfw_level`（0-3，覆盖所在场景的级别）；可补 `extension_of` / `extension_kind` / `progress` / `new_information` 组成延长格 |
 | page | id、chapter_id、按阅读顺序排列的 panel_ids；rows 可选，仅表达阅读顺序。页内格数不设上限 |
 | continuity_handover | opening_state 与 closing_state，记录本卷开场继承与结末状态（人物状态、世界规则、未回收伏笔），供跨卷交接审查核验 |
 | source_disposition | unit_id、kind=context/repetition/paratext、reason；context 还需真实 panel_ids |
 | chapter_adaptation | 每个正文章恰好一条：chapter_id、document_path、document_sha256、details、unit_audits；具体字段与呈现证据见 [detail-records.md](detail-records.md) |
 
 panels 数组就是本卷镜头顺序；pages 按此顺序覆盖每格恰好一次，不能遗漏、重复或改变顺序。相同章号的不同卷使用不同内部 chapter_id。所有分镜内容严格忠于原著，严禁胡编乱造。
+
+### 画面描述（scene_text）
+
+每格必须写 `scene_text`，一段 20 字以上的自然语言，说清这一格看得见的东西：谁在场、在哪里、做什么、什么表情、身上什么状态。
+
+- 不写权重、画质词、LoRA、采样参数、画幅尺寸
+- 不堆标签，用完整句子
+- 多人同框写清左右、前后、接触点
+- 这一段是交付物本身，不是给某个模型的提示词
 
 ### 内容分级
 
