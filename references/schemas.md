@@ -23,7 +23,7 @@ files 记录原始输入绝对路径、项目内 archive_path、格式、编码�
 | setting | id、description；可补空间布局、道具、参考路径/指纹与设计注记 |
 | event | id、description（严格对应原著真实事件，绝不捏造新情节）、非空 source_unit_ids；每个事件必须在画格中出现 |
 | scene | id、chapter_id、setting_id；可补时刻、叙事层级、`reader_knows` / `character_knows`（读者与角色此刻知道什么）、`nsfw_level`（0-3） |
-| panel | id、chapter_id、scene_id、source_unit_ids、event_ids、cast、action、shot、space、expression、state_before、state_after、dialogue（台词对白/旁白必须严格忠实于原著语义，严禁私自编造加戏）；可补 visual_plan 对象记录视觉中心、层次与局部色彩等；可补 `nsfw_level`（0-3，覆盖所在场景的级别） |
+| panel | id、chapter_id、scene_id、source_unit_ids、event_ids、cast、action、shot、space、expression、state_before、state_after、dialogue（台词对白/旁白必须严格忠实于原著语义，严禁私自编造加戏）；可补 visual_plan 对象记录视觉中心、层次与局部色彩等；可补 `nsfw_level`（0-3，覆盖所在场景的级别）；可补 `extension_of` / `extension_kind` / `progress` / `new_information` 组成延长格 |
 | page | id、chapter_id、按阅读顺序排列的 panel_ids；rows 可选，仅表达阅读顺序。页内格数不设上限 |
 | continuity_handover | opening_state 与 closing_state，记录本卷开场继承与结末状态（人物状态、世界规则、未回收伏笔），供跨卷交接审查核验 |
 | source_disposition | unit_id、kind=context/repetition/paratext、reason；context 还需真实 panel_ids |
@@ -43,6 +43,27 @@ panels 数组就是本卷镜头顺序；pages 按此顺序覆盖每格恰好一�
 | 3 | 露骨描写 |
 
 场景级别写在 `scene.nsfw_level`；同一场景内某格尺度不同时，用 `panel.nsfw_level` 覆盖。缺省视为 0。延长格只有在有效级别 ≥ 2 时才成立，且不得高于源格。
+
+### 延长格
+
+原文用「一直」「越来越」「停不下来」这类持续描述带过的一段行为，可以拆成多个观察点。这类格子标记为延长格：
+
+```json
+{
+  "id": "p016_01",
+  "extension_of": "p015_03",
+  "extension_kind": "duration",
+  "progress": 0.55,
+  "new_information": "床脚接缝的铁片被震得跳起来，又被压回去"
+}
+```
+
+- `extension_of`：源格 ID，必须指向真实存在、且自身不是延长格的分镜。
+- `extension_kind`：`duration` 沿时间切、`detail` 切局部、`reaction` 切对方反应。
+- `progress`：0–1，同一源格下按脚本顺序严格递增，不能重复。
+- `new_information`：这一格比别的格多给了什么，不能为空，同一源格下不能重复。
+
+硬约束：场景与源格相同、`cast` 是源格的子集、`source_unit_ids` 至少共享一条、`state_before` / `state_after` 与源格完全一致、有效 `nsfw_level ≥ 2`。数量不设上限，由编剧按叙事需要决定。
 
 编剧工作按章递进：当前状态目录的 `docs/adaptation/<chapter_id>.md` 保存该章细节映射、逐场详细剧情剧本、格数依据、核查记录与章末交接；`scripts/chapters/<chapter_id>.json` 保存含 events/scenes/panels/pages/source_dispositions/chapter_adaptations 的详细章节草稿，相关人物/场景档案在本卷工作稿中维护。章节文件是工作材料，不另建 project.json 或伪造独立锁；初次编写直接保存草稿，用 `check-adaptation` 核对本章，再用 `set-script` 导入已汇总的工作稿。`set-script-chapter` 校验整卷结构，适用于完整结构稿上的单章更新，必须带对应章细节记录。最终关卡仍要求本卷全部章节与同版本审查。
 

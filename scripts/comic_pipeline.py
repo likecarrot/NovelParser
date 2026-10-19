@@ -324,6 +324,117 @@ def panel_aspect_ratio(panel):
     return float(ratio)
 
 
+EXTENSION_KINDS = ('duration', 'detail', 'reaction')
+
+
+def effective_nsfw(panel, scene):
+    if isinstance(panel, dict) and 'nsfw_level' in panel:
+        return panel.get('nsfw_level')
+    if isinstance(scene, dict) and 'nsfw_level' in scene:
+        return scene.get('nsfw_level')
+    return 0
+
+
+def state_fingerprint(state):
+    try:
+        return json.dumps(state, sort_keys=True, ensure_ascii=False, separators=(',', ':'))
+    except (TypeError, ValueError):
+        return None
+
+
+def extension_panel_errors(panels, scenes_by_id):
+    """Validate extension panels: same event, same state, explicit new information."""
+    errors = []
+    by_id = {}
+    for panel in panels:
+        if isinstance(panel, dict) and nonempty(panel.get('id')):
+            by_id[panel['id']] = panel
+
+    chains = {}
+    for panel in panels:
+        if not isinstance(panel, dict):
+            continue
+        pid = str(panel.get('id', '?'))
+        if 'extension_of' not in panel:
+            for stray in ('extension_kind', 'progress', 'new_information'):
+                if stray in panel:
+                    errors.append(f'script.panels[{pid}].{stray}: only allowed together with extension_of.')
+            continue
+        source_id = panel.get('extension_of')
+        if not nonempty(source_id):
+            errors.append(f'script.panels[{pid}].extension_of: required nonempty panel ID.')
+            continue
+        if source_id == pid:
+            errors.append(f'script.panels[{pid}].extension_of: a panel cannot extend itself.')
+            continue
+        source = by_id.get(source_id)
+        if source is None:
+            errors.append(f'script.panels[{pid}].extension_of: unknown panel {source_id}.')
+            continue
+        if 'extension_of' in source:
+            errors.append(f'script.panels[{pid}].extension_of: {source_id} is itself an extension; '
+                          'extend the original panel instead of chaining.')
+            continue
+
+        if panel.get('extension_kind') not in EXTENSION_KINDS:
+            errors.append(f'script.panels[{pid}].extension_kind: expected duration, detail, or reaction.')
+        progress = panel.get('progress')
+        if type(progress) not in (int, float) or not 0 <= progress <= 1:
+            errors.append(f'script.panels[{pid}].progress: expected number between 0 and 1.')
+        if not nonempty(panel.get('new_information')):
+            errors.append(f'script.panels[{pid}].new_information: state what this panel adds.')
+
+        scene = scenes_by_id.get(panel.get('scene_id'))
+        source_scene = scenes_by_id.get(source.get('scene_id'))
+        if panel.get('scene_id') != source.get('scene_id'):
+            errors.append(f'script.panels[{pid}].scene_id: extension must stay in scene {source_id}.')
+        level = effective_nsfw(panel, scene)
+        source_level = effective_nsfw(source, source_scene)
+        if type(source_level) is not int or source_level < 2:
+            errors.append(f'script.panels[{pid}].extension_of: source level {source_level} is below 2; '
+                          'only explicit scenes can be extended.')
+        if 'nsfw_level' in panel and type(level) is int and type(source_level) is int and level > source_level:
+            errors.append(f'script.panels[{pid}].nsfw_level: extension cannot exceed source level {source_level}.')
+
+        own_units = {u for u in panel.get('source_unit_ids', []) if isinstance(u, str)}
+        source_units = {u for u in source.get('source_unit_ids', []) if isinstance(u, str)}
+        if own_units and source_units and not (own_units & source_units):
+            errors.append(f'script.panels[{pid}].source_unit_ids: cite at least one unit shared with {source_id}.')
+
+        own_cast = set(panel.get('cast') or [])
+        source_cast = set(source.get('cast') or [])
+        if source_cast and (not own_cast or not own_cast <= source_cast):
+            errors.append(f'script.panels[{pid}].cast: extension must use a nonempty subset of {source_id} cast.')
+
+        if (state_fingerprint(panel.get('state_before')) != state_fingerprint(source.get('state_before')) or
+                state_fingerprint(panel.get('state_after')) != state_fingerprint(source.get('state_after'))):
+            errors.append(f'script.panels[{pid}]: extension must keep the exact state of {source_id}; '
+                          'a state change is a new event, not an extension.')
+
+        chains.setdefault(source_id, []).append(panel)
+
+    for source_id, group in chains.items():
+        progress_values = []
+        seen_info = {}
+        for panel in group:
+            pid = panel.get('id')
+            value = panel.get('progress')
+            if type(value) in (int, float) and 0 <= value <= 1:
+                if value in progress_values:
+                    errors.append(f'script.panels[{pid}].progress: duplicate {value} in extensions of {source_id}.')
+                progress_values.append(value)
+            info = (panel.get('new_information') or '').strip()
+            if info:
+                if info in seen_info:
+                    errors.append(f'script.panels[{pid}].new_information: repeats {seen_info[info]} '
+                                  f'in the same chain of {source_id}.')
+                else:
+                    seen_info[info] = pid
+        if progress_values != sorted(progress_values):
+            errors.append(f'script.panels[{source_id}]: extension progress must increase in script order.')
+    return errors
+
+
 def script_errors(project, root=None):
     """Structural checks report field paths and never treat malformed data as proof of quality."""
     if not isinstance(project, dict):
@@ -742,6 +853,7 @@ def script_errors(project, root=None):
                 if state_val is not None and not isinstance(state_val, dict):
                     errors.append(f'continuity_handover.{state_key}: expected an object or null.')
 
+    errors.extend(extension_panel_errors(panels, registries['scenes']))
     for index, disposition in enumerate(arr(script.get('source_dispositions', []), 'script.source_dispositions')):
         if not isinstance(disposition, dict):
             errors.append(f'script.source_dispositions[{index}]: expected an object.')

@@ -182,6 +182,44 @@ class PipelineTests(unittest.TestCase):
         self.invoke('lock-script')
 
 
+    def test_extension_panel_rules(self):
+        """Extension panels need a real source, explicit fields, matching state, and nsfw level >= 2."""
+        script = self.prepare_script()
+        script['scenes'][0]['nsfw_level'] = 3
+        source = script['panels'][0]
+        ext = copy.deepcopy(source)
+        ext['id'] = source['id'] + 'x'
+        ext['extension_of'] = source['id']
+        ext['extension_kind'] = 'duration'
+        ext['progress'] = 0.5
+        ext['new_information'] = '床架接缝处多出一声闷响'
+        script['panels'].insert(script['panels'].index(source) + 1, ext)
+        page = next(p for p in script['pages'] if source['id'] in p['panel_ids'])
+        page['panel_ids'].insert(page['panel_ids'].index(source['id']) + 1, ext['id'])
+        page['rows'] = [[pid] for pid in page['panel_ids']]
+        self.invoke('set-script', file=self.json_file(script))
+
+        res = self.invoke('check-script')
+        self.assertFalse([e for e in res['errors'] if 'extension' in e or 'new_information' in e], res['errors'])
+
+        script['scenes'][0]['nsfw_level'] = 1
+        self.invoke('set-script', file=self.json_file(script))
+        res = self.invoke('check-script')
+        self.assertTrue([e for e in res['errors'] if 'below 2' in e], res['errors'])
+
+        script['scenes'][0]['nsfw_level'] = 3
+        ext['state_after'] = copy.deepcopy(source['state_after'])
+        ext['state_after']['char-a']['changed'] = True
+        self.invoke('set-script', file=self.json_file(script))
+        res = self.invoke('check-script')
+        self.assertTrue([e for e in res['errors'] if 'exact state' in e], res['errors'])
+
+        ext['state_after'] = copy.deepcopy(source['state_after'])
+        ext['new_information'] = ''
+        self.invoke('set-script', file=self.json_file(script))
+        res = self.invoke('check-script')
+        self.assertTrue([e for e in res['errors'] if 'new_information' in e], res['errors'])
+
     def test_nsfw_level_validation(self):
         """nsfw_level accepts 0-3 on scenes and panels and rejects anything else."""
         script = self.prepare_script()
