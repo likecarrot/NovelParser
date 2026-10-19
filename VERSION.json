@@ -7,11 +7,16 @@
   "installed_at": "2026-10-11T12:20:00+08:00",
   "production_mode": "storyboard-script",
   "schema_version": 6,
-  "local_revision": "3.0.0-parser",
+  "local_revision": "3.1.0-parser",
   "customizations": [
     "image generation removed entirely: no page renderer, no layout, no export",
     "model-specific prompt templates removed: no Anima tags, no SDXL weights, no ComfyUI",
     "page count limit removed: pages express reading order only",
-    "delivery is a locked storyboard script plus structured panel descriptions"
+    "delivery is a locked storyboard script plus structured panel descriptions",
+    "nsfw_level grading on scenes and panels",
+    "extension panels for sustained explicit scenes, no count limit",
+    "state ledger with fixed core fields and an extension bucket",
+    "scene_text required per panel, model prompt syntax rejected",
+    "reader_knows and character_knows on scenes"
   ]
 }
