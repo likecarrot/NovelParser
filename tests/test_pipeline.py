@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+import importlib.util
 import io
 import json
 import sys
@@ -14,7 +15,6 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 import comic_pipeline as cp
 import comic_sources as cs
-import comic_layout as cl
 from adaptation_fixtures import attach_adaptations
 
 
@@ -22,7 +22,7 @@ def fixture_script(source):
     script = cp.load_json(Path(cp.__file__).resolve().parents[1] / 'assets' / 'script-template.json')
     script.update(outline='测试夹具的全部事件顺序保留。', ending='以提供的最后一句结束。')
     script['style'].update(genre='测试', look='清晰线条', palette='灰色', selection_reason='自动化机械测试',
-                           format='pages', width=1080, height=2400, font_size=54)
+                           reading_direction='ltr')
     script['characters'] = [{'id': 'char-a', 'name': '甲', 'aliases': [], 'importance': 'major',
         'design_tier': 'lead',
         'appearance': {'gender_presentation': 'masculine', 'requirements': '机械测试男性造型', 'source_unit_ids': []},
@@ -182,42 +182,6 @@ class PipelineTests(unittest.TestCase):
         self.invoke('lock-script')
 
 
-    def image_file(self, color='white'):
-        from PIL import Image
-        import uuid
-        path = self.base / ('mechanical-' + uuid.uuid4().hex[:8] + '.png')
-        Image.new('RGB', (1080, 2400), color).save(path)
-        return str(path)
-
-
-    def qa(self, keys, reviewed_ids=None, image_sha256=None, reference_visual_key=None,
-           attempt_bindings=None):
-        report = {'checks': {k: True for k in keys},
-                  'reviewed_ids': reviewed_ids or (['char-a'] if keys == cp.REFERENCE_CHECKS else [p['id'] for p in cp.project_load(self.root)['script']['panels']]),
-                  'comparisons': [], 'findings': [],
-                  'detail_notes': '机械夹具，只检查原生像素与报告字段，不宣称艺术细节达标。',
-                  'elegance_notes': {k: '机械夹具，仅检查字段关卡，非真实美感结论。'
-                                     for k in ('linework', 'color_and_light', 'visual_hierarchy')},
-                  'evidence': '机械夹具，仅用于文件/流程回归，非真实图像验收。'}
-        if image_sha256 is not None:
-            report['image_sha256'] = image_sha256
-        if reference_visual_key is not None:
-            report['reference_visual_key'] = reference_visual_key
-        if attempt_bindings is not None:
-            report['attempt_bindings'] = attempt_bindings
-        return self.json_file(report)
-
-
-    def reference_qa(self, image_path, characters=None, subjects=None, purpose='combined'):
-        if subjects is None:
-            characters = characters or ['char-a']
-            subjects = [{'character_id': cid, 'version_id': 'base', 'region': None} for cid in characters]
-        inputs = self.invoke('qa-inputs', file=str(image_path),
-                             bindings=self.json_file({'purpose': purpose, 'subjects': subjects}))
-        return self.qa(cp.REFERENCE_CHECKS, inputs['reviewed_ids'], inputs['image_sha256'],
-                       inputs['reference_visual_key'])
-
-
     def test_pre_art_gate_rejects_empty_and_partial_script(self):
         with self.assertRaises(cp.GateError):
             self.invoke('assert-art')
@@ -325,6 +289,7 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(1, len(source['issues']))
 
 
+    @unittest.skipIf(importlib.util.find_spec('docx') is None, 'python-docx not installed')
     def test_docx_table_and_epub_spine_order(self):
         from docx import Document
         doc = Document()
@@ -345,6 +310,7 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(['先段。', '后段。'], [u['text'] for u in cs.extract([path])['units']])
 
 
+    @unittest.skipIf(importlib.util.find_spec('reportlab') is None, 'reportlab not installed')
     def test_pdf_unreadable_page_flagged(self):
         from reportlab.pdfgen import canvas
         path = self.base / '空白页.pdf'
@@ -493,7 +459,7 @@ class PipelineTests(unittest.TestCase):
         self.assertIn("常用操作命令速查", (vol1_docs / 'commands.md').read_text(encoding='utf-8'))
         self.assertIn("工程目录结构", (vol1_docs / 'structure.md').read_text(encoding='utf-8'))
         self.assertIn("关键注记与特别要求", (vol1_docs / 'notes.md').read_text(encoding='utf-8'))
-        self.assertIn("导出品交付路径", (vol1_docs / 'deliverables.md').read_text(encoding='utf-8'))
+        self.assertIn("交付物清单", (vol1_docs / 'deliverables.md').read_text(encoding='utf-8'))
 
         # 验证精简的卷根目录 README.md（作为索引与导航）
         vol1_readme = vol1_project / 'README.md'
@@ -510,72 +476,6 @@ class PipelineTests(unittest.TestCase):
         self.assertIn("docs/notes.md", vol1_readme_text)
         self.assertIn("docs/deliverables.md", vol1_readme_text)
 
-
-    def reference(self):
-        image=self.image_file()
-        self.invoke('register-reference',characters=['char-a'],file=image,qa=self.reference_qa(image))
-
-    def page_qa(self,page_id,attempt,image):
-        inputs=self.invoke('qa-inputs',page=page_id,attempt=attempt,file=image)
-        report=cp.load_json(self.qa(cp.PAGE_ART_CHECKS,inputs['reviewed_ids'],inputs['image_sha256']))
-        report.update(attempt_binding=inputs['attempt_binding'],reviewed_page_ids=[page_id],
-                      phone_reading_notes=[{'page_id':page_id,'preview_widths':[360,390,430],'min_body_css_px':18,
-                      'evidence':'机械字段夹具，不宣称已读图或测字。'}])
-        return self.json_file(report)
-
-    def accept_all(self):
-        self.reference()
-        for page in cp.project_load(self.root)['script']['pages']:
-            prompt=self.base/(page['id']+'.txt')
-            prompt.write_text(self.invoke('build-prompt',page=page['id'],output=None)['prompt'],encoding='utf-8')
-            result=self.invoke('begin-page',page=page['id'],prompt=str(prompt))
-            if not result['generation_required']:continue
-            image=self.image_file()
-            self.invoke('finish-page',page=page['id'],attempt=result['attempt'],file=image,
-                        qa=self.page_qa(page['id'],result['attempt'],image))
-
-    def review_and_export(self):
-        layout=cp.project_load(self.root)['layout']
-        report={'input_hash':layout['input_hash'],'reviewed_page_ids':[p['id'] for p in layout['pages']],
-                'checks':{k:True for k in cp.LAYOUT_CHECKS},'evidence':'机械字段夹具，不声明艺术可读性。',
-                'elegance_notes':{k:'机械字段夹具' for k in ('linework','color_and_light','visual_hierarchy')},
-                'phone_reading_notes':[{'page_id':p['id'],'preview_widths':[360,390,430],'min_body_css_px':18,
-                                       'evidence':'机械字段夹具'} for p in layout['pages']]}
-        self.invoke('review-layout',file=self.json_file(report))
-        self.invoke('export')
-
-    def test_cli_smoke_build_prompt(self):
-        import subprocess
-        self.locked()
-        self.reference()
-        script = cp.project_load(self.root)['script']
-        page_id = script['pages'][0]['id']
-
-        # Test 1: build-prompt with --page produces JSON output with prompt
-        cmd = [sys.executable, str(Path(cp.__file__)), 'build-prompt',
-               '--project', str(self.root), '--page', page_id]
-        res = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8')
-        self.assertEqual(0, res.returncode, f"build-prompt failed: {res.stderr}")
-        out = json.loads(res.stdout)
-        self.assertTrue(out.get('ok'))
-        self.assertIn('prompt', out)
-        self.assertEqual(page_id, out['page_id'])
-
-        # Test 2: build-prompt with --notes and --output file
-        out_prompt_file = self.base / 'test_smoke_prompt.txt'
-        cmd_notes = [sys.executable, str(Path(cp.__file__)), 'build-prompt',
-                     '--project', str(self.root), '--page', page_id,
-                     '--notes', '重要镜头提示', '--output', str(out_prompt_file)]
-        res_notes = subprocess.run(cmd_notes, capture_output=True, text=True, encoding='utf-8')
-        self.assertEqual(0, res_notes.returncode, f"build-prompt with notes failed: {res_notes.stderr}")
-        self.assertTrue(out_prompt_file.is_file())
-        self.assertIn('重要镜头提示', out_prompt_file.read_text(encoding='utf-8'))
-
-        # Test 3: verify abbreviation --pag is rejected because allow_abbrev=False
-        cmd_abbrev = [sys.executable, str(Path(cp.__file__)), 'build-prompt',
-                      '--project', str(self.root), '--pag', page_id]
-        res_abbrev = subprocess.run(cmd_abbrev, capture_output=True, text=True, encoding='utf-8')
-        self.assertNotEqual(0, res_abbrev.returncode, "Abbreviated flag --pag must be rejected")
 
     def test_stage_review_bypass_blocked_and_fingerprint_stale(self):
         p_dir = self.base / '五章项目'
@@ -627,49 +527,6 @@ class PipelineTests(unittest.TestCase):
         with self.assertRaises(cp.GateError) as ctx2:
             cp.run(Namespace(command='lock-script', project=str(p_dir)))
         self.assertTrue(any(word in str(ctx2.exception) for word in ('mismatch', 'changed', 'stale')))
-
-    def test_preview_page_generation(self):
-        self.locked()
-        script = cp.project_load(self.root)['script']
-        page_id = script['pages'][0]['id']
-        img = self.image_file(color='blue')
-        prev_res = self.invoke('preview-page', page=page_id, file=img)
-        self.assertTrue(prev_res['ok'])
-        self.assertEqual(page_id, prev_res['page_id'])
-        for w in (360, 390, 430):
-            pfile = self.root / 'previews' / 'pages' / page_id / f'{w}.png'
-            self.assertTrue(pfile.is_file(), f"Preview file {pfile} should exist")
-            from PIL import Image
-            with Image.open(pfile) as pimg:
-                self.assertEqual(w, pimg.width)
-
-    def test_cost_estimation_and_typeset_preflight(self):
-        self.locked()
-        cost_res = self.invoke('estimate-cost')
-        self.assertTrue(cost_res['ok'])
-        self.assertIn('estimated_pages', cost_res)
-        self.assertIn('estimated_art_calls', cost_res)
-        self.assertIn('cost_visibility', cost_res)
-
-        typeset_ok = self.invoke('preflight-typeset')
-        self.assertTrue(typeset_ok['ok'])
-        self.assertEqual(0, len(typeset_ok['errors']))
-
-        # Catch dialogue overflow
-        script = cp.project_load(self.root)['script']
-        huge_text = '这是一段极长的测试对白，用来检验排字容量检查。' * 500
-        script['panels'][0]['dialogue'].append({'kind': 'speech', 'speaker': 'char-a', 'text': huge_text})
-        self.invoke('set-script', file=self.json_file(script))
-        typeset_fail = self.invoke('preflight-typeset')
-        self.assertFalse(typeset_fail['ok'])
-        self.assertTrue(any('exceeds' in e and 'capacity' in e for e in typeset_fail['errors']))
-
-    def exported(self):
-        self.locked()
-        self.accept_all()
-        self.invoke('prepare-pages')
-        self.review_and_export()
-
 
 if __name__=='__main__':
     unittest.main()

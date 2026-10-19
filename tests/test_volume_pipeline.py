@@ -14,16 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 import comic_pipeline as cp
 import comic_sources as cs
-import comic_layout as cl
-from PIL import Image
 from adaptation_fixtures import attach_adaptations
-
-
-def make_dummy_png(path: Path, width: int = 100, height: int = 100, color=(200, 200, 200)):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    img = Image.new('RGB', (width, height), color)
-    img.save(str(path))
-    return path
 
 
 def fixture_volume_script(source):
@@ -31,7 +22,7 @@ def fixture_volume_script(source):
     script = cp.load_json(template_path)
     script.update(outline='测试夹具的全部事件顺序保留。', ending='以提供的最后一句结束。')
     script['style'].update(genre='奇幻', look='精致优雅', palette='清透自然',
-                           selection_reason='自动化机械测试', format='pages', width=1080, height=2400, font_size=54)
+                           selection_reason='自动化机械测试', reading_direction='ltr')
     script['characters'] = [{
         'id': 'char-a', 'name': '甲', 'aliases': [], 'importance': 'major',
         'design_tier': 'lead',
@@ -269,20 +260,16 @@ class VolumePipelineTests(unittest.TestCase):
         warnings = cp.external_source_warnings(proj)
         self.assertTrue(any('unverified cross-volume background' in w for w in warnings))
 
-    def test_doctor_and_preflight_typeset_cli(self):
-        """doctor and preflight-typeset run cleanly and report diagnostic info."""
+    def test_doctor_cli(self):
+        """doctor runs cleanly and reports diagnostic info without image dependencies."""
         vol_dir = self.base / 'doctor_test'
         src = self.base / 'src_doc.txt'
         src.write_text("第1章 来信\n正文文本。\n", encoding='utf-8')
         cp.run(Namespace(command='init', project=str(vol_dir), source=[str(src)],
                          title='体检测试', volume='第1卷'))
 
-        # Run doctor
         doc_res = cp.run(Namespace(command='doctor', project=str(vol_dir)))
         self.assertTrue(doc_res['ok'])
         self.assertIn('environment', doc_res)
         self.assertEqual(doc_res['project']['title'], '体检测试')
-
-        # Run preflight-typeset
-        pf_res = cp.run(Namespace(command='preflight-typeset', project=str(vol_dir)))
-        self.assertTrue(pf_res['ok'])
+        self.assertFalse(doc_res['project']['script_locked'])

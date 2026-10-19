@@ -5,7 +5,13 @@
   "commit_author": "小呆呆666",
   "commit_message": "feat: 明确exports成品文件与已完成成品图禁止乱删除及二次确认铁律",
   "installed_at": "2026-10-11T12:20:00+08:00",
-  "production_mode": "whole-page",
+  "production_mode": "storyboard-script",
   "schema_version": 6,
-  "local_revision": "2.6.1"
+  "local_revision": "3.0.0-parser",
+  "customizations": [
+    "image generation removed entirely: no page renderer, no layout, no export",
+    "model-specific prompt templates removed: no Anima tags, no SDXL weights, no ComfyUI",
+    "page count limit removed: pages express reading order only",
+    "delivery is a locked storyboard script plus structured panel descriptions"
+  ]
 }

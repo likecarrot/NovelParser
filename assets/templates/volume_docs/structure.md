@@ -15,13 +15,6 @@
 ├── source/                   # 提取的章节正文；originals/ 保存原稿副本
 ├── scripts/                  # 工作剧本、修订稿与项目专用辅助代码
 ├── design/                   # 本卷角色、场景、道具及美术档案
-├── art/                      # 画面资产目录
-│   ├── references/           # 已登记参考基准图（register-reference 保存）
-│   ├── pages/                # 已验收的完整原生漫画PNG（finish-page保存）
-│   └── failed-pages/         # 实际失败整页与返修记录
-├── prompts/                  # 每页完整提示词与本页排版/美术打磨笔记
-├── reports/                  # 剧本审查、基准QA与完整页视觉报告
-├── pages/                    # 按顺序复制的原始完整页；phone-previews/保存缩小预览
-├── exports/                  # 离线阅读器、PDF、CBZ 导出品
+├── reports/                  # 剧本审查报告
 └── versions/                 # 原文重提取等需要独立状态的内部版本
 ```

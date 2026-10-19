@@ -1,24 +1,24 @@
 {
-  "name": "novel-to-comic",
-  "version": "2.6.1",
-  "description": "Faithful novel adaptation with polished whole-page prompts, one image call per page and native phone-reading pages.",
+  "name": "novel-parser",
+  "version": "3.0.0",
+  "description": "Faithful novel-to-storyboard adaptation: locked panel script, character state continuity, natural-language panel descriptions. No image generation and no model-specific prompts.",
   "author": {
     "name": "xdd666t"
   },
   "repository": "https://github.com/aiskyhub/novel_to_comic",
   "keywords": [
-    "codex",
-    "plugin",
-    "novel-to-comic",
+    "novel",
+    "storyboard",
     "comic",
     "manga",
-    "storyboard"
+    "adaptation",
+    "script"
   ],
   "skills": "./",
   "interface": {
-    "displayName": "Novel to Comic",
-    "shortDescription": "Convert novels into complete comics faithfully.",
-    "longDescription": "Full script and source review first; polished page prompts; one call creates the entire phone-reading comic page with all panels and lettering; whole-page review and native-page export.",
+    "displayName": "NovelParser",
+    "shortDescription": "Turn novels into locked comic storyboards.",
+    "longDescription": "Chapter-by-chapter adaptation with three-tier evidence. Output is a locked panel script: who is present, what happens in each panel, shot and space, character state, and original dialogue. No image generation and no model-specific prompt syntax.",
     "developerName": "xdd666t",
     "category": "Creative",
     "capabilities": [
@@ -26,7 +26,7 @@
       "Write"
     ],
     "defaultPrompt": [
-      "将我提供的小说忠实改编为完整漫画。"
+      "把我提供的小说改编成漫画分镜剧本。"
     ]
   }
 }

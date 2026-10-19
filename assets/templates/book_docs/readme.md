@@ -20,19 +20,16 @@
 4. **通篇详细分镜剧本先行与三轮自校验（严禁胡编乱造）**：
    - 完整通读本卷原文，编制本卷详细可绘制剧本，所有分镜、对白与动作必须 100% 严格忠于原著，严禁魔改加戏，执行 `set-script` 导入；
    - 逐轮完成 coverage（事件覆盖与零虚构）、continuity（因果连贯与原著因果）、comic（镜头与排版）三轮审查并生成报告；
-   - 通过 `lock-script` 锁定剧本并输出 `full-script.md`。**严禁在剧本锁定前出图！**
-5. **角色与场景视觉基准登记**：
-   - 通过 `assert-art` 关卡放行；建立男女主角多角度、全身与表情设定板；
-   - 美术人设子代理出具参考报告，主代理审阅验收合格后，通过 `register-reference` 登记基准图。续卷可直接复用前卷已通过的基准图。
-6. **自适应多格生成与逐格验收**：
-   - 提示词子代理打磨每页完整提示词，`begin-page`登记一次整页调用，渲染子代理一次绘图直接得到完整漫画页；
-   - 品控子代理手机视口看图质检，执行`qa-inputs --page`读取整页绑定，主代理`finish-page`整页验收。
-7. **文字排版与页面合成**：
-   - 使用`prepare-pages`复制完整原生PNG并生成手机阅读预览；
-   - 实际审阅所有页面后执行 `review-layout` 记录质检结论。
-8. **多格式导出与最终验收交付**：
-   - 执行 `export` 导出离线 HTML 阅读器、PDF 与 CBZ；
-   - 渲染验证后执行 `complete` 记录交付，并更新本卷 `README.md` 与顶层总览看板。
+   - 通过 `lock-script` 锁定剧本并输出 `full-script.md`。**锁定前不得进入交付。**
+5. **角色与场景档案**：
+   - 美术人设子代理整理角色外观、形态版本与区分要点，写入 `docs/characters.md`；
+   - 场景与道具写入 `script.scenes` / `script.settings` / `script.props`。
+6. **分镜描述**：
+   - 分镜描述子代理为每格写 `scene_text`、`state_before`、`state_after`；
+   - 状态必须逐格接续，改变需有原文依据。
+7. **交付**：
+   - `full-script.md`、`project.json`、`scripts/chapters/*.json`、`docs/adaptation/*.md`、`reports/`；
+   - 更新本卷 `README.md` 与顶层总览看板。
 
 ## 📚 各种规范引导文件在哪（文档导航）
 
@@ -44,7 +41,7 @@
 | [docs/structure.md](docs/structure.md) | 工程目录结构规范、各文件夹职责与文件流转规则 | 了解项目布局、维护工作流或排查文件路径时查阅 |
 | [docs/worldview.md](docs/worldview.md) | 时代背景、地理势力、核心法则/能力体系与术语表 | 编剧分镜、场景空间设计与对白术语校验时查阅 |
 | [docs/characters.md](docs/characters.md) | 跨卷核心角色档案、男女外观标准、设计层级与基准对照指南 | 角色人设、设定板制作、基准图登记与防撞脸核查时查阅 |
-| [docs/art_direction.md](docs/art_direction.md) | 全书主美术方向（线条、配色、光影、背景留白、版式动线） | 风格确立、批次提示词撰写与整页视觉审美质检时查阅 |
+| [docs/art_direction.md](docs/art_direction.md) | 全书视觉方向（线条、配色、背景、版式动线） | 角色与场景描述时查阅 |
 | [docs/progress.md](docs/progress.md) | 全书制作进度看板、各卷实施里程碑与演进日志 | 制作推进、节点验收与换会话恢复进度时更新查阅 |
 
 ## 📁 项目目录结构
@@ -74,10 +71,7 @@
     ├── full-script.md          # 本卷锁定的分镜剧本
     ├── source/                 # 本卷提取的章节与原稿副本
     ├── design/                 # 本卷角色与场景档案
-    ├── art/                    # 本卷参考图、完整原生页与实际失败整页
-    ├── reports/                # 本卷质检审查报告
-    ├── pages/                  # 本卷排版页面 PNG
-    └── exports/                # 本卷阅读器、PDF、CBZ 成品
+    ├── reports/                # 本卷审查报告
 ```
 
 ## 🚀 常用操作命令速查

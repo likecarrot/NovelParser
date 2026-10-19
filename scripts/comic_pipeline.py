@@ -50,12 +50,6 @@ REVIEW_CHECKS = {
     'continuity': ['causality', 'timeline', 'identity', 'states', 'knowledge_and_reveals'],
     'comic': ['drawable_panels', 'dialogue_and_speakers', 'reading_order', 'pacing', 'text_density'],
 }
-PAGE_DRAWING_CHECKS = ['identity', 'continuity', 'composition', 'drawing_quality', 'no_unwanted_text',
-                'gender_readability', 'distinctiveness', 'body_design', 'design_tier_fit', 'visual_elegance', 'native_detail']
-REFERENCE_CHECKS = ['identity', 'distinctiveness', 'angles_and_expressions', 'source_faithfulness',
-                    'gender_readability', 'body_design', 'design_tier_fit', 'visual_elegance']
-LAYOUT_CHECKS = ['text_accuracy', 'reading_order', 'speaker_assignment', 'face_visibility', 'visual_elegance', 'phone_readability']
-PAGE_ART_CHECKS = PAGE_DRAWING_CHECKS + LAYOUT_CHECKS
 VOLUME_HEADING = re.compile(r'^(?:第[0-9零〇一二三四五六七八九十百千万两壹贰叁肆伍陆柒捌玖拾佰\s]+[卷部篇集].*'
                             r'|(?:book|volume|part)\s+[\wIVXLC0-9]+.*)$', re.I)
 
@@ -293,20 +287,17 @@ def nonempty(value):
 
 
 def page_rows(page):
-    """Return narrative row order; single-panel rows occupy the full width."""
-    columns = page.get('columns', 1)
-    if type(columns) is not int or columns != 1:
-        raise GateError('Page columns must be 1.')
+    """Return the narrative panel order of one page. No panel-count limit."""
     pids = page.get('panel_ids')
     if not isinstance(pids, list) or not pids or any(not nonempty(pid) for pid in pids):
         raise GateError('Page needs a nonempty panel_ids array.')
     if 'rows' not in page:
-        return [pids[start:start + columns] for start in range(0, len(pids), columns)]
+        return [[pid] for pid in pids]
     rows = page['rows']
     if (not isinstance(rows, list) or not rows or
-            any(not isinstance(row, list) or len(row) != 1 or
+            any(not isinstance(row, list) or not row or
                 any(not nonempty(pid) for pid in row) for row in rows)):
-        raise GateError('Page rows must contain one narrative panel ID per row.')
+        raise GateError('Page rows must contain narrative panel IDs.')
     if [pid for row in rows for pid in row] != pids:
         raise GateError('Page rows must match panel_ids exactly in reading order.')
     return rows
@@ -361,16 +352,11 @@ def script_errors(project, root=None):
     for key in ('genre', 'look', 'palette', 'selection_reason'):
         if not nonempty(style.get(key)):
             errors.append('script.style.' + key + ': required nonempty text.')
-    if style.get('format') != 'pages' or style.get('reading_direction') not in ('ltr', 'rtl'):
-        errors.append('script.style.format/reading_direction: invalid values.')
-    for key in ('width', 'height', 'font_size'):
-        if key in style and (type(style[key]) is not int or style[key] <= 0):
-            errors.append(f'script.style.{key}: expected a positive integer.')
-    for removed_key in ('font_path','max_segment_height'):
+    if style.get('reading_direction') not in ('ltr', 'rtl'):
+        errors.append('script.style.reading_direction: expected ltr or rtl.')
+    for removed_key in ('width', 'height', 'font_size', 'format'):
         if removed_key in style:
-            errors.append('script.style.'+removed_key+': not part of whole-page production.')
-    from comic_layout import phone_style_errors, check_phone_rows
-    errors.extend(phone_style_errors(style))
+            errors.append('script.style.' + removed_key + ': removed with image production; describe framing in text instead.')
 
     registries = {}
     character_versions = {}
@@ -774,11 +760,9 @@ def script_errors(project, root=None):
                 any(registries['panels'].get(panel_id, {}).get('chapter_id') != chapter_id for panel_id in pids)):
             errors.append(f'script.pages[{page_id}].chapter_id: page crosses or omits its chapter.')
         try:
-            rows = page_rows(page)
-            if style.get('format') == 'pages':
-                check_phone_rows(page, rows)
+            page_rows(page)
             if 'row_weights' in page:
-                raise GateError('page.row_weights is not part of whole-page production.')
+                raise GateError('page.row_weights is not part of narrative page planning.')
         except GateError as error:
             errors.append(f'script.pages[{page_id}]: {error}')
         narrative = page.get('narrative')
@@ -882,17 +866,6 @@ def has_unresolved_critical(report):
     if isinstance(findings, list):
         return any(isinstance(f, dict) and f.get('severity') == 'critical' and not f.get('resolved') for f in findings)
     return False
-
-
-def validate_reference_qa(report, character_ids, image_sha256, reference_visual_key):
-    validate_qa(report, REFERENCE_CHECKS, 'reference')
-    missing = set(character_ids) - set(report['reviewed_ids'])
-    if missing:
-        raise GateError('Reference QA reviewed_ids must include every subject character: ' + ', '.join(sorted(missing)))
-    if report.get('image_sha256') != image_sha256:
-        raise GateError('Reference QA image_sha256 must match the exact reference image bytes.')
-    if report.get('reference_visual_key') != reference_visual_key:
-        raise GateError('Reference QA reference_visual_key must match the current image, character design, purpose, and subject regions.')
 
 
 def stage_batches(project):
@@ -1302,40 +1275,13 @@ def validate_stage_review(report, root=None, project=None):
     return True
 
 
-VALID_PAGE_STATUSES = (
-    'pending', 'accepted', 'accepted_flawed', 'rejected',
-    'blocked', 'placeholder_pending', 'failed', 'cancelled', 'stale'
-)
-
-
-def art_structure_errors(project):
-    art=project.get('art')
-    if not isinstance(art,dict) or set(art)!={'references','pages'}:
-        return ['art: whole-page ledger must contain only references and pages.']
-    errors=[]
-    if not isinstance(art['references'],list) or any(not isinstance(r,dict) for r in art['references']):
-        errors.append('art.references: expected reference objects.')
-    if not isinstance(art['pages'],dict):
-        errors.append('art.pages: expected attempts indexed by page ID.')
-    else:
-        for pid,attempts in art['pages'].items():
-            if not nonempty(pid) or not isinstance(attempts,list):
-                errors.append('art.pages: invalid page attempt ledger.')
-                continue
-            for a in attempts:
-                if (not isinstance(a,dict) or type(a.get('number')) is not int or
-                    a.get('status') not in VALID_PAGE_STATUSES or not nonempty(a.get('render_hash'))):
-                    errors.append('art.pages: malformed whole-page attempt.')
-    return errors
-
 def assert_script_lock(project, root=None):
     if not isinstance(project, dict):
         raise GateError('project: expected an object.')
     errors = script_errors(project, root)
-    errors.extend(art_structure_errors(project))
     lock = project.get('script_lock')
     if not isinstance(lock, dict) or lock.get('script_hash') != digest(project.get('script')) or lock.get('source_index_hash') != project.get('source_index_hash'):
-        errors.append('Volume script lock missing or stale; no drawing is allowed.')
+        errors.append('Volume script lock missing or stale; relock before producing a deliverable.')
     reviews = project.get('reviews')
     if not isinstance(reviews, list):
         errors.append('reviews: expected an array.')
@@ -1345,16 +1291,13 @@ def assert_script_lock(project, root=None):
         raise GateError('\n'.join(errors))
 
 
-LAYOUT_STYLE_KEYS = {'width', 'height', 'font_size', 'format',
-                     'reading_direction'}
-
-
 def visual_style(project):
     style = project['script'].get('style', {})
     if not isinstance(style, dict):
         return {}
     visual = {key: value for key, value in style.items()
-              if key not in LAYOUT_STYLE_KEYS and key not in ('selection_reason', 'references')}
+              if key not in ('width', 'height', 'font_size', 'format', 'reading_direction',
+                             'selection_reason', 'references')}
     direction = visual.get('art_direction')
     if isinstance(direction, dict):
         visual['art_direction'] = {key: value for key, value in direction.items() if key != 'lettering'}
@@ -1521,36 +1464,50 @@ def panel_visual_snapshot(root, project, panel):
         if prop is None:
             raise GateError(f'Panel {panel_id} references missing prop: {prop_id}')
         prop_visuals.append({'prop': {key: value for key, value in prop.items()
-                                     if key not in ('reference_paths', 'reference_hashes')},
-                             'references': entity_reference_fingerprints(root, prop)})
+                                     if key not in ('reference_paths', 'reference_hashes')}})
     scene_core = {key: value for key, value in scene.items() if key not in ('reference_paths', 'reference_hashes')}
     setting_core = {key: value for key, value in setting.items() if key not in ('reference_paths', 'reference_hashes')}
     return {'visual': visual, 'characters': rendered_characters, 'scene': scene_core, 'setting': setting_core,
-            'scene_refs': entity_reference_fingerprints(root, scene),
-            'setting_refs': entity_reference_fingerprints(root, setting), 'props': prop_visuals,
+            'props': prop_visuals,
             'style': visual_style(project),
-            'native_lettering': {
-                'dialogue': panel.get('dialogue', []),
-                'body_size_fraction': project['script']['style'].get('font_size', 54) / project['script']['style'].get('width', 1080),
-                'rules': project['script']['style'].get('art_direction', {}).get('lettering')
-            }}
+            'dialogue': panel.get('dialogue', [])}
 
 
 
 
 
 
-def copy_image(root, original, category):
-    from PIL import Image
-    original = Path(original).resolve()
-    with Image.open(original) as image:
-        image.verify()
-    filename = uuid.uuid4().hex[:12] + original.suffix.lower()
-    relative = str(Path('art') / category / filename).replace('\\', '/')
-    target = inside(root, relative)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(original, target)
-    return relative, sha_file(target)
+def production_status(root, project):
+    """Report lock and review readiness. No image, layout, or export accounting."""
+    script = project.get('script') if isinstance(project.get('script'), dict) else {}
+    panels = script.get('panels') if isinstance(script.get('panels'), list) else []
+    pages = script.get('pages') if isinstance(script.get('pages'), list) else []
+    chapters = project.get('source', {}).get('chapters', []) if isinstance(project.get('source'), dict) else []
+    body_chapters = [c for c in chapters if isinstance(c, dict) and c.get('has_body')]
+    unread = [c.get('id') for c in body_chapters if not c.get('read')]
+    fingerprint = digest(script)
+    lock_valid, lock_errors = is_script_lock_valid(project, root)
+    reviews = project.get('reviews', []) if isinstance(project.get('reviews'), list) else []
+    missing = [kind for kind in REVIEW_CHECKS
+               if not any(isinstance(r, dict) and r.get('kind') == kind and r.get('script_hash') == fingerprint
+                          for r in reviews)]
+    blockers = []
+    if not lock_valid:
+        blockers.extend(lock_errors)
+    if unread:
+        blockers.append('Unread chapters: ' + ', '.join(unread))
+    if missing:
+        blockers.append('Missing current volume reviews: ' + ', '.join(missing))
+    return {'title': project.get('title'), 'volume': project.get('volume'),
+            'script_locked': lock_valid, 'script_hash': fingerprint,
+            'chapters': len(body_chapters), 'chapters_unread': unread,
+            'panels': len(panels), 'pages': len(pages),
+            'reviews_recorded': len(reviews), 'missing_reviews': missing,
+            'blockers': blockers,
+            'external_source_warnings': external_source_warnings(project),
+            'deliverables': ['full-script.md', 'project.json',
+                             'scripts/chapters/<chapter_id>.json',
+                             'docs/adaptation/<chapter_id>.md', 'reports/']}
 
 
 def script_markdown(project):
@@ -1710,104 +1667,12 @@ def impact_report(root, project, candidate):
             before, after = digest(old_panels.get(pid)), digest(new_panels.get(pid))
         if before != after:
             affected_panels.append(pid)
-    impacted_refs = []
-    for reference in project.get('art', {}).get('references', []):
-        if not isinstance(reference, dict):
-            continue
-        subjects = reference.get('subjects', [])
-        chars = [s.get('character_id') for s in subjects if isinstance(s, dict)]
-        versions = {s.get('character_id'): s.get('version_id', 'base') for s in subjects if isinstance(s, dict)}
-        try:
-            current = reference.get('design_hash')
-            proposed = design_hash(new_copy, chars, versions)
-        except (GateError, KeyError, TypeError):
-            proposed = None
-            current = reference.get('design_hash')
-        if current != proposed:
-            impacted_refs.append(reference.get('id'))
-    def layout_payload(script_value):
-        panels_value = script_value.get('panels', [])
-        panels_value = panels_value if isinstance(panels_value, list) else []
-        style_value = script_value.get('style', {})
-        style_value = style_value if isinstance(style_value, dict) else {}
-        return {'dialogue': [(p.get('id'), p.get('dialogue'))
-                             for p in panels_value if isinstance(p, dict)],
-                'pages': script_value.get('pages'),
-                'style': {k: v for k, v in style_value.items() if k in LAYOUT_STYLE_KEYS}}
-    layout_only_changed = digest(layout_payload(old_copy['script'])) != digest(layout_payload(candidate))
     errors = script_errors(new_copy, root)
     return {'current_script_hash': digest(project['script']), 'candidate_script_hash': digest(candidate),
             'changed_visual_character_ids': changed_characters, 'changed_visual_style': changed_style,
-            'affected_reference_ids': impacted_refs, 'affected_panel_ids': affected_panels,
-            'layout_inputs_changed': layout_only_changed, 'candidate_errors': errors[:100],
+            'affected_panel_ids': affected_panels,
+            'candidate_errors': errors[:100],
             'candidate_error_count': len(errors), 'mutated': False}
-
-
-def qa_inputs(root, project, args):
-    """Return the hashes a visual QA report must bind to; this command is read-only."""
-    assert_script_lock(project, root)
-    has_reference = bool(getattr(args, 'reference', None))
-    has_page = bool(getattr(args, 'page', None))
-    has_file = bool(getattr(args, 'file', None))
-    bindings_file = getattr(args, 'bindings', None)
-    character_ids = getattr(args, 'characters', None)
-    attempt_number = getattr(args, 'attempt', None)
-    if has_reference:
-        if has_page or has_file or bindings_file or character_ids or attempt_number is not None:
-            raise GateError('qa-inputs --reference cannot be combined with file, bindings, characters, panel, or attempt.')
-        reference = next((item for item in project.get('art', {}).get('references', [])
-                          if isinstance(item, dict) and item.get('id') == args.reference), None)
-        if reference is None:
-            raise GateError('Reference ID missing.')
-        image_path = inside(root, reference.get('path'))
-        if not image_path.is_file():
-            raise GateError('Reference image missing.')
-        actual_sha = sha_file(image_path)
-        if actual_sha != reference.get('sha256'):
-            raise GateError('Reference image changed; register a new asset before requesting QA inputs.')
-        subjects = normalize_subjects(project, reference.get('subjects'))
-        ids = [subject['character_id'] for subject in subjects]
-        current_design = design_hash(project, ids, {subject['character_id']: subject['version_id'] for subject in subjects})
-        key = reference_visual_key(actual_sha, current_design, reference.get('purpose', 'combined'), subjects)
-        return {'scope': 'reference', 'reference_id': args.reference, 'image_path': str(image_path),
-                'image_sha256': actual_sha, 'design_hash': current_design, 'reference_visual_key': key,
-                'purpose': reference.get('purpose', 'combined'), 'subjects': subjects, 'reviewed_ids': ids}
-    if has_page:
-        if bindings_file or character_ids or has_reference or not has_file or attempt_number is None:
-            raise GateError('Whole-page QA needs --page --attempt --file, without reference selection options.')
-        from comic_pages import page_qa_inputs
-        return page_qa_inputs(root,project,args.page,attempt_number,args.file)
-    if not has_file:
-        raise GateError('qa-inputs needs --reference, --page, or --file with reference bindings.')
-    if attempt_number is not None or getattr(args, 'reference', None):
-        raise GateError('qa-inputs --file reference mode cannot be combined with attempt/reference IDs.')
-    if bool(bindings_file) == bool(character_ids):
-        raise GateError('qa-inputs --file reference mode needs exactly one of --bindings or --characters.')
-    if bindings_file:
-        data = load_json(bindings_file)
-        if not isinstance(data, dict):
-            raise GateError('--bindings must contain a reference binding object.')
-        purpose = data.get('purpose')
-        subjects = normalize_subjects(project, data.get('subjects'))
-    else:
-        known = {item.get('id') for item in project['script']['characters'] if isinstance(item, dict)}
-        if not character_ids or any(not nonempty(cid) or cid not in known for cid in character_ids):
-            raise GateError('--characters must identify known characters.')
-        purpose = 'combined'
-        subjects = normalize_subjects(project, [{'character_id': cid, 'version_id': 'base', 'region': None}
-                                                for cid in character_ids])
-    if purpose not in ('portrait', 'full_body', 'turnaround', 'expressions', 'pose', 'combined'):
-        raise GateError('Reference purpose must be portrait, full_body, turnaround, expressions, pose, or combined.')
-    image_path = Path(args.file).resolve()
-    if not image_path.is_file():
-        raise GateError('Reference image file missing.')
-    image_sha = sha_file(image_path)
-    ids = [subject['character_id'] for subject in subjects]
-    current_design = design_hash(project, ids, {subject['character_id']: subject['version_id'] for subject in subjects})
-    key = reference_visual_key(image_sha, current_design, purpose, subjects)
-    return {'scope': 'reference', 'image_path': str(image_path), 'image_sha256': image_sha,
-            'design_hash': current_design, 'reference_visual_key': key, 'purpose': purpose,
-            'subjects': subjects, 'reviewed_ids': ids}
 
 
 def init_book(book_dir, title=None, sources=None, action='copy', description=''):
@@ -2047,17 +1912,8 @@ def write_volume_readme(root, project):
     script = project.get('script', {}) if isinstance(project.get('script'), dict) else {}
     panels = script.get('panels', []) if isinstance(script.get('panels'), list) else []
     pages = script.get('pages', []) if isinstance(script.get('pages'), list) else []
-    art = project.get('art', {}) if isinstance(project.get('art'), dict) else {}
-    ref_list = art.get('references', []) if isinstance(art.get('references'), list) else []
-
-    from comic_pages import accepted_page
-    accepted_pages = [page for page in pages if accepted_page(root,project,page)]
-    accepted_panels = sum(len(page['panel_ids']) for page in accepted_pages)
     lock_valid, lock_errors = is_script_lock_valid(project, root)
     script_lock = project.get('script_lock')
-    registered_refs = len(ref_list)
-    valid_refs = sum(1 for r in ref_list if is_reference_valid(root, project, r))
-    exports = project.get('exports')
 
     source_files = [f.get('path', '') for f in source.get('files', []) if isinstance(f, dict)]
     source_summary = ', '.join(Path(p).name for p in source_files if p) or '已归档原文'
@@ -2086,13 +1942,8 @@ def write_volume_readme(root, project):
         'total_chapters': len(chapters),
         'lock_display': lock_display,
         'script_fingerprint': script_lock.get('script_hash')[:12] if lock_valid else digest(script)[:12],
-        'registered_refs': registered_refs,
-        'valid_refs': valid_refs,
-        'accepted_panels': accepted_panels, 'accepted_pages': len(accepted_pages),
         'total_panels': len(panels),
-        'layout_status': '✅ 整页已归档' if project.get('layout') else '⏳ 待整理整页 (prepare-pages)',
-        'page_count': len(pages),
-        'exports_status': '📦 已导出' if exports else '⏳ 待导出 (export)'
+        'page_count': len(pages)
     })
     (docs_dir / 'status.md').write_text(status_content, encoding='utf-8')
 
@@ -2122,14 +1973,13 @@ def write_volume_readme(root, project):
         notes_file.write_text(notes_content, encoding='utf-8')
 
     # 6. docs/deliverables.md
-    deliv_lines = []
-    if exports and isinstance(exports, dict) and 'files' in exports:
-        for f in exports.get('files', []):
-            kind = f.get('kind', 'file')
-            path = f.get('path', '')
-            deliv_lines.append(f"- **{kind.upper()}**：`{path}`")
-    else:
-        deliv_lines.append("- （尚未导出成品；完成所有画格与排版后执行 `export` 自动填充）")
+    deliv_lines = [
+        "- **分镜剧本**：`full-script.md`",
+        "- **工程数据**：`project.json`",
+        "- **分章分镜**：`scripts/chapters/<chapter_id>.json`",
+        "- **改编细节清单**：`docs/adaptation/<chapter_id>.md`",
+        "- **审查记录**：`reports/`",
+    ]
     deliv_content = render_template('volume_docs', 'deliverables.md', {
         'title': title,
         'volume': volume or '分卷',
@@ -2139,13 +1989,9 @@ def write_volume_readme(root, project):
 
     # 7. 卷级精简导航 README.md
     status_summary = (
-        '📦 本卷已验收交付' if project.get('final_review') else
-        '📦 已导出待验收' if exports else
-        '🎨 排版完成' if project.get('layout') else
-        f'🖌️ 整页绘制验收中 ({accepted_panels}/{len(panels)})' if accepted_panels else
-        '🔒 剧本已锁定' if lock_valid else
-        '⚠️ 剧本锁失效' if script_lock else
-        '📝 剧本编制与三轮校验中'
+        '🔒 分镜已锁定' if lock_valid else
+        '⚠️ 分镜锁失效' if script_lock else
+        '📝 分镜编制与三轮校验中'
     )
 
     auto_block = render_template('volume_docs', 'status_block.md', {
@@ -2153,11 +1999,8 @@ def write_volume_readme(root, project):
         'volume': volume or '分卷',
         'status_summary': status_summary,
         'lock_display': lock_display,
-        'accepted_panels': accepted_panels, 'accepted_pages': len(accepted_pages),
         'total_panels': len(panels),
-        'registered_refs': registered_refs,
-        'valid_refs': valid_refs,
-        'export_summary': '📦 已导出' if exports else '⏳ 待完成'
+        'total_pages': len(pages)
     }).strip()
 
     readme_path = root / 'README.md'
@@ -2180,123 +2023,35 @@ def write_volume_readme(root, project):
 
 
 def doctor(root_dir=None):
-    import importlib.util
-    dependencies={name:importlib.util.find_spec(name) is not None for name in ('PIL','reportlab','pypdf')}
-    result={'ok':all(dependencies.values()),'environment':{'python_version':sys.version.split()[0],'platform':sys.platform},'dependencies':dependencies}
+    result = {'ok': True,
+              'environment': {'python_version': sys.version.split()[0], 'platform': sys.platform}}
     if root_dir:
-        from comic_pages import status
-        result['project']=status(Path(root_dir).resolve(),project_load(root_dir))
+        result['project'] = production_status(Path(root_dir).resolve(), project_load(root_dir))
     return result
 
-def estimate_production_cost(project):
-    """Estimate page count, API call budget, and batch delivery breakdown."""
+
+def estimate_scale(project):
+    """Estimate panel scale and stage-review batches. No render budget."""
     chapters = project.get('source', {}).get('chapters', [])
     body_chapters = [c for c in chapters if isinstance(c, dict) and c.get('has_body')]
     body_count = len(body_chapters)
     units = project.get('source', {}).get('units', [])
     total_words = sum(len(u.get('text', '')) for u in units if isinstance(u, dict))
-
     script_panels = project.get('script', {}).get('panels', [])
     script_pages = project.get('script', {}).get('pages', [])
-
-    actual_or_est_panels = len(script_panels) if script_panels else body_count * 60
-    actual_or_est_pages = len(script_pages) if script_pages else max(1, (actual_or_est_panels + 2) // 3)
-
-    min_generation_calls = actual_or_est_pages
-    max_generation_calls = actual_or_est_pages * 3
-    major_characters = [c for c in project.get('script', {}).get('characters', []) if isinstance(c, dict) and c.get('importance') == 'major']
-    est_reference_calls = max(2, len(major_characters) * 2)
-
     stages = stage_batches(project) if body_count else []
-
     return {
         'ok': True,
         'body_chapters_count': body_count,
         'source_text_characters': total_words,
-        'estimated_panels': actual_or_est_panels,
-        'estimated_pages': actual_or_est_pages,
-        'call_budget': {
-            'min_page_renders': min_generation_calls,
-            'max_page_renders': max_generation_calls,
-            'reference_renders': est_reference_calls,
-            'total_max_calls': max_generation_calls + est_reference_calls,
-        },
+        'panels_recorded': len(script_panels),
+        'pages_recorded': len(script_pages),
+        'estimated_panels_before_draft': body_count * 60,
         'delivery_batches': len(stages),
         'stages_breakdown': [
-            {'stage': s['stage_index'], 'chapters': f"{s['start_chapter_id']}..{s['end_chapter_id']}", 'count': s['chapter_count']}
-            for s in stages
-        ],
-        'estimated_art_calls': max_generation_calls + est_reference_calls,
-        'cost_visibility': {
-            'estimated_pages': actual_or_est_pages,
-            'max_generation_calls': max_generation_calls,
-            'total_max_calls': max_generation_calls + est_reference_calls
-        }
+            {'stage': s['stage_index'], 'chapters': f"{s['start_chapter_id']}..{s['end_chapter_id']}",
+             'count': s['chapter_count']} for s in stages],
     }
-
-
-def check_typeset_feasibility(project):
-    """Check dialogue text capacity, line estimation, and dialogue completeness before script lock."""
-    panels = project.get('script', {}).get('panels', [])
-    pages = project.get('script', {}).get('pages', [])
-    style = project.get('script', {}).get('style', {})
-    canvas_w = style.get('width', 1080)
-    target_font_size = style.get('font_size', 54)
-
-    issues = []
-    total_dialogue_chars = 0
-    total_dialogue_items = 0
-
-    MAX_ITEM_CHARS = 120
-    MAX_PANEL_CHARS = 200
-
-    for panel in panels:
-        pid = panel.get('id', '?')
-        dialogue = panel.get('dialogue', [])
-        panel_chars = 0
-        for dindex, d in enumerate(dialogue):
-            text = d.get('text', '')
-            trimmed = text.strip()
-            if not trimmed:
-                issues.append({'panel_id': pid, 'dialogue_index': dindex,
-                               'issue': 'Dialogue text is empty.'})
-            tlen = len(trimmed)
-            panel_chars += tlen
-            total_dialogue_chars += tlen
-            total_dialogue_items += 1
-
-            if tlen > MAX_ITEM_CHARS:
-                chars_per_line = max(8, int((canvas_w * 0.4) / target_font_size))
-                est_lines = (tlen + chars_per_line - 1) // chars_per_line
-                issues.append({
-                    'panel_id': pid,
-                    'dialogue_index': dindex,
-                    'char_count': tlen,
-                    'estimated_lines': est_lines,
-                    'issue': f"Dialogue text length ({tlen} chars, est. {est_lines} lines) exceeds readable bubble capacity at {target_font_size}px font size. Split into multiple bubbles/panels or trim narration."
-                })
-
-        if panel_chars > MAX_PANEL_CHARS:
-            issues.append({
-                'panel_id': pid,
-                'total_chars': panel_chars,
-                'issue': f"Total dialogue in panel {pid} ({panel_chars} chars) exceeds panel typography budget (max {MAX_PANEL_CHARS} chars)."
-            })
-
-    cost_estimate = estimate_production_cost(project)
-
-    return {
-        'ok': len(issues) == 0,
-        'issues': issues,
-        'errors': [i['issue'] for i in issues],
-        'total_dialogue_items': total_dialogue_items,
-        'total_dialogue_chars': total_dialogue_chars,
-        'panel_count': len(panels),
-        'page_count': len(pages),
-        'cost_estimate': cost_estimate
-    }
-
-
 
 
 def run(args):
@@ -2326,8 +2081,6 @@ def run(args):
         project = {'schema_version': SCHEMA_VERSION, 'revision': 1, 'title': title, 'volume': volume,
                    'created_at': now(), 'source': source, 'source_index_hash': index_hash(source),
                    'script': template, 'reviews': [], 'script_lock': None,
-                   'art': {'references': [], 'pages': {}},
-                   'layout': None, 'exports': None, 'final_review': None,
                    'continuity_handover': {'opening_inherited_state': None, 'closing_state': None}}
         for chapter in source['chapters']:
             text = '\n'.join(u['text'] for u in source['units'] if u['chapter_id'] == chapter['id'])
@@ -2431,46 +2184,11 @@ def run(args):
     project = project_load(root)
     if getattr(args, 'file', None):
         args.file = str(resolve_file_arg(args.file, project_dir=root))
-    if getattr(args, 'qa', None):
-        args.qa = str(resolve_file_arg(args.qa, project_dir=root))
     if getattr(args, 'plan', None):
         args.plan = str(resolve_file_arg(args.plan, project_dir=root))
-    if getattr(args, 'prompt', None):
-        args.prompt = str(resolve_file_arg(args.prompt, project_dir=root))
-    if getattr(args, 'regions', None):
-        args.regions = str(resolve_file_arg(args.regions, project_dir=root))
-    if getattr(args, 'bindings', None) and not str(args.bindings).lstrip().startswith('{'):
-        args.bindings = str(resolve_file_arg(args.bindings, project_dir=root))
 
-    if command == 'build-prompt':
-        assert_script_lock(project, root)
-        from comic_pages import build_page_prompt
-        notes = ''
-        if getattr(args, 'notes', None):
-            try:
-                np = resolve_file_arg(args.notes, project_dir=root)
-                if np.is_file():
-                    notes = np.read_text(encoding='utf-8-sig')
-                else:
-                    notes = str(args.notes)
-            except Exception:
-                notes = str(args.notes)
-        prompt_text = build_page_prompt(root, project, args.page, notes)
-        if args.output:
-            output = Path(args.output).resolve()
-            output.parent.mkdir(parents=True, exist_ok=True)
-            output.write_text(prompt_text, encoding='utf-8')
-            return {'ok': True, 'page_id': args.page, 'output_path': str(output), 'char_count': len(prompt_text)}
-        return {'ok': True, 'page_id': args.page, 'prompt': prompt_text, 'char_count': len(prompt_text)}
-    if command == 'preview-page':
-        from comic_layout import preview_page
-        return preview_page(root, project, args.page, file=getattr(args, 'file', None))
-    if command == 'estimate-cost':
-        return estimate_production_cost(project)
-    if command == 'preflight-typeset':
-        return check_typeset_feasibility(project)
-    if command == 'qa-inputs':
-        return qa_inputs(root, project, args)
+    if command == 'estimate-scale':
+        return estimate_scale(project)
     if command == 'chapter':
         return [u for u in project['source']['units'] if not args.chapter or u['chapter_id'] == args.chapter]
     if command == 'script-chapter':
@@ -2509,10 +2227,6 @@ def run(args):
             if project.get('script_lock'):
                 project.setdefault('script_lock_history', []).append(project['script_lock'])
             project['script_lock'] = None
-            project.setdefault('layout_history', []).append(project['layout']) if project.get('layout') else None
-            project.setdefault('exports_history', []).append(project['exports']) if project.get('exports') else None
-            project.setdefault('final_review_history', []).append(project['final_review']) if project.get('final_review') else None
-            project['layout'] = project['exports'] = project['final_review'] = None
         project['script'] = script
     elif command == 'set-script-chapter':
         fragment = load_json(args.file)
@@ -2599,10 +2313,6 @@ def run(args):
             project.setdefault('script_lock_history', []).append(project['script_lock'])
         project['script'] = script
         project['script_lock'] = None
-        for field in ('layout', 'exports', 'final_review'):
-            if project.get(field):
-                project.setdefault(field + '_history', []).append(project[field])
-            project[field] = None
     elif command == 'check-script':
         errors = script_errors(project, root)
         return {'script_hash': digest(project['script']), 'errors': errors[:100], 'error_count': len(errors),
@@ -2675,124 +2385,12 @@ def run(args):
     elif command == 'assert-art':
         assert_script_lock(project, root)
         return {'allowed': True, 'script_hash': project['script_lock']['script_hash']}
-    elif command == 'register-reference':
-        assert_script_lock(project, root)
-        if getattr(args, 'bindings', None):
-            binding_data = load_json(args.bindings)
-            if not isinstance(binding_data, dict):
-                raise GateError('Reference bindings file must contain a JSON object.')
-            purpose = binding_data.get('purpose')
-            subjects = normalize_subjects(project, binding_data.get('subjects'))
-        else:
-            ids = args.characters or []
-            known = {c.get('id') for c in project['script']['characters'] if isinstance(c, dict)}
-            if not ids or any(c not in known for c in ids):
-                raise GateError('Reference must identify existing characters.')
-            purpose = 'combined'
-            subjects = normalize_subjects(project, [{'character_id': cid, 'version_id': 'base', 'region': None} for cid in ids])
-        if purpose not in ('portrait', 'full_body', 'turnaround', 'expressions', 'pose', 'combined'):
-            raise GateError('Reference purpose must be portrait, full_body, turnaround, expressions, pose, or combined.')
-        report = load_json(args.qa)
-        reference_characters = [subject['character_id'] for subject in subjects]
-        source_sha = sha_file(Path(args.file))
-        versions = {s['character_id']: s['version_id'] for s in subjects}
-        current_design_hash = design_hash(project, reference_characters, versions)
-        visual_key = reference_visual_key(source_sha, current_design_hash, purpose, subjects)
-        validate_reference_qa(report, reference_characters, source_sha, visual_key)
-        known_ids = {c.get('id') for c in project['script']['characters'] if isinstance(c, dict)}
-        for pair in report.get('comparisons', []):
-            pair_ids = pair.get('character_ids', pair.get('pair'))
-            if any(cid not in known_ids for cid in pair_ids):
-                raise GateError('Reference QA comparison contains an unknown character ID.')
-        path, sha = copy_image(root, args.file, 'references')
-        characters = [s['character_id'] for s in subjects]
-        reference_id = 'ref' + uuid.uuid4().hex[:12]
-        if sha != source_sha:
-            raise GateError('Reference image changed while it was being registered; retry with a fresh review.')
-        project['art']['references'].append({'id': reference_id, 'character_ids': characters,
-                    'subjects': subjects, 'purpose': purpose,
-                    'design_hash': current_design_hash, 'visual_key': visual_key,
-                    'path': path, 'sha256': sha,
-                    'qa': report, 'at': now()})
-        save(root, project)
-        return {'ok': True, 'reference_id': reference_id, 'path': str(inside(root, path))}
-    elif command == 'begin-page':
-        from comic_pages import begin_page
-        return begin_page(root,project,args.page,args.prompt)
-    elif command == 'finish-page':
-        from comic_pages import finish_page
-        return finish_page(root,project,args.page,args.attempt,args.file,args.qa)
-    elif command == 'fail-page':
-        from comic_pages import fail_page
-        return fail_page(root,project,args.page,args.attempt,args.reason,args.outcome,getattr(args,'file',None),
-                         generation_failure=getattr(args, 'generation_failure', False))
-    elif command == 'placeholder-page':
-        from comic_pages import create_placeholder_page
-        return create_placeholder_page(root, project, args.page, args.reason,
-                                       output=getattr(args, 'output', None),
-                                       qa_output=getattr(args, 'qa_output', None),
-                                       finish=getattr(args, 'finish', False))
-    elif command in ('prepare-pages', 'review-layout', 'export', 'verify-export', 'complete'):
-        assert_script_lock(project, root)
-        from comic_layout import layout_fingerprint, prepare_pages, export, verify_exports
-        fingerprint = layout_fingerprint(root,project)
-        if command == 'prepare-pages':
-            project['layout'] = prepare_pages(root,project)
-            project['exports'],project['final_review'] = None,None
-        else:
-            layout = project.get('layout')
-            if not layout or layout['input_hash'] != fingerprint:
-                raise GateError('Whole pages missing or stale.')
-            for page in layout['pages']:
-                path = inside(root, page['path'])
-                if not path.is_file() or sha_file(path) != page['sha256']:
-                    raise GateError('Whole page missing or changed.')
-            if command == 'review-layout':
-                report = load_json(args.file)
-                validate_qa(report, LAYOUT_CHECKS)
-                from comic_layout import validate_phone_reading_report
-                validate_phone_reading_report(project, report)
-                if report.get('input_hash') != fingerprint or set(report.get('reviewed_page_ids', [])) != {p['id'] for p in layout['pages']}:
-                    raise GateError('Visual layout review must bind current hash and every whole page.')
-                layout['qa'] = report
-            else:
-                if not layout.get('qa'):
-                    raise GateError('View and review every whole page before export.')
-                validate_qa(layout['qa'], LAYOUT_CHECKS)
-                if command == 'export':
-                    project['exports'] = export(root, project)
-                    project['final_review'] = None
-                else:
-                    verification = verify_exports(root, project)
-                    if command == 'verify-export':
-                        return verification
-                    report = load_json(args.file)
-                    validate_qa(report, ['source_scope', 'story_complete', 'visual_consistency', 'exports_opened'])
-                    if report.get('input_hash') != fingerprint:
-                        raise GateError('Final review must bind current deliverable inputs.')
-                    layout_pages = layout.get('pages', [])
-                    allow_placeholders = getattr(args, 'allow_placeholders', False) or report.get('allow_placeholders') is True or report.get('accept_placeholders') is True
-                    allow_flawed = getattr(args, 'allow_flawed', False) or report.get('allow_flawed') is True or report.get('accept_flawed') is True
-                    placeholder_pids = [p['id'] for p in layout_pages if p.get('status') == 'placeholder_pending']
-                    if placeholder_pids and not allow_placeholders:
-                        raise GateError(
-                            f'Final delivery blocked: page(s) {placeholder_pids} are placeholder_pending. '
-                            'Formal delivery requires full artwork completion or explicit authorization via allow_placeholders in final_review report.'
-                        )
-                    flawed_pids = [p['id'] for p in layout_pages if p.get('status') == 'accepted_flawed']
-                    if flawed_pids and not allow_flawed:
-                        raise GateError(
-                            f'Final delivery blocked: page(s) {flawed_pids} are accepted_flawed. '
-                            'Formal delivery requires redraw repair or explicit authorization via allow_flawed in final_review report.'
-                        )
-                    project['final_review'] = {**report, 'verification': verification, 'at': now()}
-    elif command in ('status','preflight'):
-        from comic_pages import status
-        return status(root,project)
+    elif command in ('status', 'preflight'):
+        return production_status(root, project)
     else:
         raise GateError('Unknown command.')
     save(root, project)
-    if command in ('lock-script', 'export', 'complete'):
+    if command == 'lock-script':
         write_volume_readme(root, project)
     return {'ok': True, 'command': command, 'script_hash': digest(project['script'])}
 
@@ -2824,50 +2422,18 @@ def parser():
     doctor_p = subs.add_parser('doctor')
     doctor_p.add_argument('--project', default='.', help='Volume project directory or book directory to inspect')
 
-    typeset_p = subs.add_parser('preflight-typeset')
-    typeset_p.add_argument('--project', required=True, help='Volume project directory')
+    scale_p = subs.add_parser('estimate-scale')
+    scale_p.add_argument('--project', required=True, help='Volume project directory')
 
-    build_prompt_p = subs.add_parser('build-prompt')
-    build_prompt_p.add_argument('--project', required=True, help='Volume project directory')
-    build_prompt_p.add_argument('--page', required=True, help='Page ID to compile prompt for')
-    build_prompt_p.add_argument('--notes', help='Optional notes text or file path')
-    build_prompt_p.add_argument('--output', help='Output prompt file path (default stdout)')
-
-    preview_p = subs.add_parser('preview-page')
-    preview_p.add_argument('--project', required=True, help='Volume project directory')
-    preview_p.add_argument('--page', required=True, help='Page ID to generate phone previews for')
-    preview_p.add_argument('--file', help='Candidate image path (defaults to latest attempt or accepted page)')
-
-    cost_p = subs.add_parser('estimate-cost')
-    cost_p.add_argument('--project', required=True, help='Volume project directory')
-
-    placeholder_p = subs.add_parser('placeholder-page')
-    placeholder_p.add_argument('--project', required=True, help='Volume project directory')
-    placeholder_p.add_argument('--page', required=True, help='Page ID to generate placeholder for')
-    placeholder_p.add_argument('--reason', required=True, help='Failure diagnostic reason')
-    placeholder_p.add_argument('--output', help='Output PNG file path (defaults to renders/<page>_failed_placeholder.png)')
-    placeholder_p.add_argument('--qa-output', help='Output QA report path (defaults to renders/<page>_failed_placeholder_qa.json)')
-    placeholder_p.add_argument('--finish', action='store_true', help='Automatically finish and accept the placeholder page to avoid pipeline stalls')
-
-    for name in ('init', 'preflight', 'qa-inputs', 'chapter', 'script-chapter', 'resolve-issue', 'confirm-source',
+    for name in ('init', 'preflight', 'chapter', 'script-chapter', 'resolve-issue', 'confirm-source',
                  'mark-read', 'set-script', 'set-script-chapter', 'impact', 'check-script', 'check-adaptation',
-                 'check-stage-review', 'review',
-                 'lock-script', 'assert-art', 'register-reference',
-                 'begin-page', 'finish-page', 'fail-page', 'prepare-pages',
-                 'review-layout', 'export', 'verify-export', 'complete', 'status'):
+                 'check-stage-review', 'review', 'lock-script', 'assert-art', 'status'):
         sub = subs.add_parser(name)
         sub.add_argument('--project', required=True)
         if name == 'init':
             sub.add_argument('--source', nargs='+', required=True)
             sub.add_argument('--title')
             sub.add_argument('--volume')
-        if name == 'qa-inputs':
-            sub.add_argument('--file')
-            sub.add_argument('--bindings')
-            sub.add_argument('--characters', nargs='+')
-            sub.add_argument('--reference')
-            sub.add_argument('--page')
-            sub.add_argument('--attempt', type=int)
         if name in ('chapter', 'mark-read', 'script-chapter'):
             sub.add_argument('--chapter', required=name == 'mark-read')
         if name == 'resolve-issue':
@@ -2877,8 +2443,7 @@ def parser():
             sub.add_argument('--note', required=True)
         if name == 'confirm-source':
             sub.add_argument('--scope')
-        if name in ('set-script', 'set-script-chapter', 'impact', 'review', 'register-reference',
-                    'finish-page', 'review-layout', 'complete'):
+        if name in ('set-script', 'set-script-chapter', 'impact', 'review'):
             sub.add_argument('--file', required=True)
         if name == 'check-stage-review':
             sub.add_argument('--file', help='Stage review report JSON; defaults to all reports in reports/stage_reviews/')
@@ -2889,26 +2454,6 @@ def parser():
             sub.add_argument('--file', help='Chapter draft JSON; defaults to imported volume script.')
         if name == 'review':
             sub.add_argument('--kind', choices=REVIEW_CHECKS, required=True)
-        if name == 'register-reference':
-            selection = sub.add_mutually_exclusive_group(required=True)
-            selection.add_argument('--characters', nargs='+')
-            selection.add_argument('--bindings')
-        if name in ('register-reference', 'finish-page'):
-            sub.add_argument('--qa', required=True)
-        if name in ('begin-page','finish-page','fail-page'):
-            sub.add_argument('--page',required=True)
-        if name in ('finish-page','fail-page'):
-            sub.add_argument('--attempt',type=int,required=True)
-        if name == 'begin-page':
-            sub.add_argument('--prompt',required=True)
-        if name == 'complete':
-            sub.add_argument('--allow-placeholders', action='store_true', help='Explicitly authorize delivery with placeholder pages')
-            sub.add_argument('--allow-flawed', action='store_true', help='Explicitly authorize delivery with accepted_flawed pages')
-        if name == 'fail-page':
-            sub.add_argument('--file',help='Archive an actual failed whole-page output')
-            sub.add_argument('--reason',required=True)
-            sub.add_argument('--outcome',choices=('failed','rejected','blocked','cancelled','stale'),default='failed')
-            sub.add_argument('--generation-failure', action='store_true', help='Mark as render generation failure (allows up to 6 retries)')
     return p
 
 

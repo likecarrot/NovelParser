@@ -1,3 +1,3 @@
-# 《{{title}}》· {{volume}} 导出品交付路径
+# 《{{title}}》· {{volume}} 交付物清单
 
 {{items}}

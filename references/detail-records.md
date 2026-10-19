@@ -79,7 +79,7 @@
 
 ## 版本与返修边界
 
-`check-script`、`review`、`lock-script` 与有效出图锁均校验全卷记录和绑定文档。改写 Markdown 后先修订对应细节与分镜并更新文档指纹，通过 `set-script` 或 `set-script-chapter` 正常导入，重做受影响语义审查并形成同一最新剧本指纹的三类报告。不要只更新指纹而跳过核查。
+`check-script`、`review`、`lock-script` 与有效锁均校验全卷记录和绑定文档。改写 Markdown 后先修订对应细节与分镜并更新文档指纹，通过 `set-script` 或 `set-script-chapter` 正常导入，重做受影响语义审查并形成同一最新剧本指纹的三类报告。不要只更新指纹而跳过核查。
 
 `script-chapter` 返回选定章的 `chapter_adaptations`。`set-script-chapter` 要求恰好一条对应章记录，只替换该章，保留其他章记录；它仍只适用于已经有完整结构稿的单章返修。
 

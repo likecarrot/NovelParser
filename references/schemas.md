@@ -17,14 +17,14 @@ files 记录原始输入绝对路径、项目内 archive_path、格式、编码�
 | 对象 | 字段与要求 |
 |---|---|
 | 本卷 | outline：本卷结构与核心故事梗概（必须 100% 严格提炼自已确认正文，绝对禁止脑补编造）；ending：本卷实际原文真实收尾 |
-| style | genre、look、palette、selection_reason；format=pages；reading_direction=ltr/rtl；width/height/font_size默认1080/2400/54；单页高/宽2.0–2.4、360宽正文建议约16 CSS像素（字体验收放宽，字体大小为建议参考，不作为卡点）；不需要max_segment_height或font_path，须读 [phone-reading.md](phone-reading.md)；新项目使用 art_direction 记录具体美术规范，references 保存实际参考记录 |
+| style | genre、look、palette、selection_reason、reading_direction=ltr/rtl；art_direction 记录线条、明暗、色彩、背景等文字规范。不写画幅、字高、字体与参考图 |
 | character | id、name、aliases 数组、importance=major/supporting/minor；narrative 含 goal/motivation/voice/arc（必须忠实于原著人设事实）；visual 含 face_shape/eyes/brows/nose_mouth/body/posture/hair/age；source_facts、design_notes 数组 |
 | source_fact | text 与非空 source_unit_ids；必须为原文真实事实，设计注记不能写成原作事实 |
 | setting | id、description；可补空间布局、道具、参考路径/指纹与设计注记 |
 | event | id、description（严格对应原著真实事件，绝不捏造新情节）、非空 source_unit_ids；每个事件必须在画格中出现 |
 | scene | id、chapter_id、setting_id；可补时刻、读者/人物知情状态、叙事层级 |
 | panel | id、chapter_id、scene_id、source_unit_ids、event_ids、cast、action、shot、space、expression、state_before、state_after、dialogue（台词对白/旁白必须严格忠实于原著语义，严禁私自编造加戏）；可补 visual_plan 对象记录视觉中心、层次与局部色彩等 |
-| page | id、chapter_id、按阅读顺序排列的 panel_ids；默认单页columns=1，单页严格限定3–4格（常规模式下3格，信息简单可4格）；rows每行一格整宽纵排，直接用于完整页提示词布局 |
+| page | id、chapter_id、按阅读顺序排列的 panel_ids；rows 可选，仅表达阅读顺序。页内格数不设上限 |
 | continuity_handover | opening_state 与 closing_state，记录本卷开场继承与结末状态（人物状态、世界规则、未回收伏笔），供跨卷交接审查核验 |
 | source_disposition | unit_id、kind=context/repetition/paratext、reason；context 还需真实 panel_ids |
 | chapter_adaptation | 每个正文章恰好一条：chapter_id、document_path、document_sha256、details、unit_audits；具体字段与呈现证据见 [detail-records.md](detail-records.md) |
@@ -45,9 +45,9 @@ panels 数组就是本卷镜头顺序；pages 按此顺序覆盖每格恰好一�
 ```
 跨卷继承事实与设定时必须使用带命名空间的对象，严禁直接使用前卷短 ID 混入本卷。流水线会校验跨卷项目的 `source_index_hash` 与单元存在性，避免编号碰撞或静默失效。
 
-art_direction 的字段及决策方法见 [art-direction.md](art-direction.md)；模板的默认规范需按本作调整。references 的建议记录为 `{work,url,scope,access,observations,adaptation}`，access=viewed/metadata_only/unavailable；仅在实际看过画页时填写具体观察，不要求为了锁定剧本额外上网。严格遵循手机单页约束（1080×2400、单页限定 3–4 格纵排）。
+art_direction 的字段及决策方法见 [art-direction.md](art-direction.md)；模板默认值需按本作调整。
 
-手机单页rows为画格ID数组的数组，例如常规三格 `[["p1"],["p2"],["p3"]]` 或四格 `[["p1"],["p2"],["p3"],["p4"]]`，每行一格占满可用宽度；展平后必须与panel_ids完全一致。单页columns只能为1；每格aspect_ratio在提示词中用于整页内部的格高规划。
+rows 为画格 ID 数组的数组，展平后必须与 panel_ids 完全一致，只表达阅读顺序。不写 columns、aspect_ratio 或任何版面尺寸。
 
 状态按角色 ID 保存对象，例如 `{ "form":"base", "costume":"coat-a", "injuries":[], "items":[], "location":"room-a", "knowledge":[] }`。各 cast 都有 state_before/after。相邻出场的已记录状态发生变化时，在当前格 state_transitions 填 `{character_id,fields,reason,source_unit_ids}`，解释状态间变化；直接呈现的变化仍要在 action/events 中有依据。
 
@@ -140,29 +140,18 @@ comic：drawable_panels/dialogue_and_speakers/reading_order/pacing/text_density�
 }
 ```
 
-参考图报告检查项：identity/distinctiveness/angles_and_expressions/source_faithfulness/gender_readability/body_design/design_tier_fit/visual_elegance。
-整页正文报告：identity/continuity/composition/drawing_quality/no_unwanted_text/gender_readability/distinctiveness/body_design/design_tier_fit/visual_elegance/native_detail，加上全部页面阅读检查。reviewed_ids列出本页全部分镜，使用单一attempt_binding绑定整页；detail_notes记录整页原生与手机尺寸中的实际观察。
-以上视觉报告共同需要非空 evidence、实际 reviewed_ids、image_sha256 与 findings；参考还需 comparisons 和 reference_visual_key，完整页还需attempt_binding（具体格式见下文）。
+审查报告检查项：
 
-页面报告另外需要 `input_hash` 和全部实际 `reviewed_page_ids`；检查项text_accuracy/reading_order/speaker_assignment/face_visibility/visual_elegance/phone_readability。`phone_reading_notes`按reviewed_page_ids顺序逐页记录，例如 `[{"page_id":"page-a","preview_widths":[360,390,430],"min_body_css_px":18,"evidence":"实际页尺寸、最小正文的位置与测量、三种宽度阅读观察及修复"}]`。数值与观察必须来自实际预览；没有任何文字的纯画面页min_body_css_px填null并注明，含文字的页拒绝null。
-最终报告需要 `input_hash`；检查项 source_scope/story_complete/visual_consistency/exports_opened，并在 evidence 中说明已核查顶层及分卷 `README.md`、`docs/` 模块文档，确认所有剧情描述 100% 真实忠实于小说原文，无任何脑补臆测。
+- `coverage`：all_source_read / events_preserved / arcs_preserved / ending_preserved
+- `continuity`：causality / timeline / identity / states / knowledge_and_reveals
+- `comic`：drawable_panels / dialogue_and_speakers / reading_order / pacing / text_density
 
-## 整页图像与数据契约
+报告必须带非空 `evidence`、真实 `reviewed_chapter_ids` 与 `script_hash`。机械字段通过 `review` 登记，程序不代写结论。
 
-art仅包含references数组与pages对象，不接受其他生产账本字段。references继续记录真实文件SHA256、角色/形态subjects、用途purpose、设计指纹与基准QA。
+## 交付数据契约
 
-art.pages按真实page ID索引尝试数组。每次整页调用记录number、status（pending/accepted/accepted_flawed/rejected/blocked/placeholder_pending/failed/cancelled/stale）、render_hash、实际prompt_path/prompt_sha256与at；通过后保存原生完整页path/sha256、qa与settled_at。页面状态细分为：合格为 accepted；已满 3 次审图预算且带缺陷兜底暂存为 accepted_flawed（未满 3 次尝试严禁带缺陷放行；含 unresolved critical 缺陷直接标记为 blocked 阻断）；生图失败记录真实failure（生图失败可标记generation_failed=true，最多重试六次；六次均失败耗尽后通过placeholder-page自动生成标明失败诊断、保留剧本分镜与对白的1080×2400原生失败占位图并置为 placeholder_pending 暂存）。已结算页（accepted/accepted_flawed/placeholder_pending）允许生成内部预览包并继续推进下一页，但在 final_review 与 complete 最终交付时，默认严格阻断含占位图或缺陷暂存页面的交付，除非显式提供 --allow-placeholders / --allow-flawed 授权。
+`project.json` 只保存分镜生产所需数据：`source`、`script`、`reviews`、`script_lock`、`continuity_handover`。
 
-render_hash绑定本页全部分镜、对白、人物状态、页布局、字号、画风与实际参考语义。只改变一页的内容不会使另一页输入相同的完整PNG失效。页面可指定reference_ids选择已登记基准；缺省按本页角色/形态选择最近的有效参考，不新增独立绑定任务。
+不写 `art`、`layout`、`exports`、`final_review`。不存在页面尝试账本、图像哈希、预览尺寸或导出记录。
 
-`qa-inputs --page --attempt --file`返回真实image_sha256、reviewed_ids（本页全部分镜ID）、reviewed_page_ids与attempt_binding，例如：
-
-```json
-{"page_id":"page01","attempt":1,"render_hash":"本页真实输入指纹"}
-```
-
-正文报告只有一份整页报告：checks包含PAGE_DRAWING_CHECKS与LAYOUT_CHECKS全部项目，reviewed_ids按本页panel_ids顺序列全，reviewed_page_ids只包含本页；image_sha256与attempt_binding须精确匹配。evidence、detail_notes、elegance_notes、findings、defect_explanation（已满三次审图预算未达标时的兜底缺陷解释，未满三次禁止利用此字段放行缺陷）与phone_reading_notes记录真实观察；不自动生成通过结论。页内每个镜头在同一整页原图中人工核对，不产生独立镜头文件或独立尝试账本。
-
-layout保存prepare-pages按顺序复制的完整原生PNG，path、sha256、真实width/height、panel_ids与phone_previews（360/390/430宽预览路径、尺寸与哈希）。复制成品PNG必须与art/pages已验收文件的字节完全一致；图片本身包含页边框、格间距与全部原生气泡，程序不添加漫画内容。
-
-页面报告绑定layout.input_hash与所有reviewed_page_ids，包含LAYOUT_CHECKS和逐页phone_reading_notes；纯画面无字页min_body_css_px可为null，含字页必须提供360宽下实际最小字高数值（字体验收放宽，建议约16 CSS像素，字体大小为软性建议不作为阻断卡点）。exports与final_review继续绑定当前输入和实际文件；每卷独立完成，不等待尚未提供的其他卷。
+脚本锁定后再修改 `script`，`script_lock` 立即失效，`reviews` 一并作废，必须重跑三轮审查与阶段审查。

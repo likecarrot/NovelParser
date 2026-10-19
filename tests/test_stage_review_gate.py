@@ -490,41 +490,5 @@ class TestStageReviewGate(unittest.TestCase):
         h3 = cp.stage_script_fingerprint(proj3, ['ch01'])
         self.assertNotEqual(h1, h3, "Modifying page panels must change fingerprint")
 
-    def test_check_phone_rows_panel_count_gate(self):
-        """Phone rows gate must accept 3 and 4 panels, but reject 1, 2, or 5 panels."""
-        import comic_layout as cl
-        # 3 panels -> valid
-        cl.check_phone_rows({'panel_ids': ['p1', 'p2', 'p3'], 'columns': 1}, [['p1'], ['p2'], ['p3']])
-        # 4 panels -> valid
-        cl.check_phone_rows({'panel_ids': ['p1', 'p2', 'p3', 'p4'], 'columns': 1}, [['p1'], ['p2'], ['p3'], ['p4']])
-
-        # 1 panel -> rejected
-        with self.assertRaises(cp.GateError) as ctx1:
-            cl.check_phone_rows({'panel_ids': ['p1'], 'columns': 1}, [['p1']])
-        self.assertIn('require 3–4 narrative panels', str(ctx1.exception))
-
-        # 2 panels -> rejected
-        with self.assertRaises(cp.GateError) as ctx2:
-            cl.check_phone_rows({'panel_ids': ['p1', 'p2'], 'columns': 1}, [['p1'], ['p2']])
-        self.assertIn('require 3–4 narrative panels', str(ctx2.exception))
-
-        # 5 panels -> rejected
-        with self.assertRaises(cp.GateError) as ctx5:
-            cl.check_phone_rows({'panel_ids': [f'p{i}' for i in range(5)], 'columns': 1}, [[f'p{i}'] for i in range(5)])
-        self.assertIn('require 3–4 narrative panels', str(ctx5.exception))
-
-    def test_preview_page_path_traversal_blocked(self):
-        """preview_page must reject traversal page_ids or non-existent pages."""
-        import comic_layout as cl
-        mock_proj = {'script': {'pages': [{'id': 'page01'}]}}
-        with self.assertRaises(cp.GateError) as ctx:
-            cl.preview_page('.', mock_proj, '../../../escaped-previews')
-        self.assertIn('Invalid page_id', str(ctx.exception))
-
-        with self.assertRaises(cp.GateError) as ctx2:
-            cl.preview_page('.', mock_proj, 'nonexistent_page')
-        self.assertIn('does not exist in project pages', str(ctx2.exception))
-
-
 if __name__ == '__main__':
     unittest.main()

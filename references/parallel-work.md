@@ -15,66 +15,55 @@
 
 1. **绝对禁止亲自写初稿分镜**：各章原文精读、细节清单提取（`docs/adaptation/`）与逐格分镜草稿编写（`scripts/chapters/`）必须全量派发给**改编编剧师子代理**执行。
 2. **绝对禁止亲自动手整改不合格剧本**：当阶段审核打回时，**主代理严禁自己动手修剧本、加镜头或改台词**！主代理仅负责客观仲裁并下达整改决议，具体画格级修改增补**必须全量交由剧本改稿整改师子代理（或编剧子代理）亲自执笔**！
-3. **绝对禁止亲自编写或打磨完整页出图提示词**：出图提示词架构、3~4 格整宽纵排布局规划（常规3格、简单4格）、原生对白气泡与手机建议字高排版（字体验收放宽，字体大小仅为建议不作为卡点），必须全量交由**分镜提示词工程师子代理**执行。
-4. **绝对禁止亲自调用生图工具或手工修图**：绘图生成与资产登记由**画面渲染执行员子代理**执行。
-5. **绝对禁止亲自撰写具体整页 QA 报告**：手机 360/390/430px 多视口逐格审阅、五官一致性核查、原生对白错漏核验与实测字高记录（字体验收放宽，字体大小仅为建议不作为卡点），必须全量交由**画面与排版品控员子代理**执行。
-6. **绝对禁止伪造/合成审查与整改报告**：
+3. **绝对禁止亲自编写画面描述**：逐格的 `scene_text`、`state_before`、`state_after` 必须交由**分镜描述工程师子代理**执行。
+4. **绝对禁止亲自填写审查结论**：三轮审查与阶段审批必须由红队审评官与全卷终审编辑独立出具。
+5. **绝对禁止伪造/合成审查与整改报告**：
    - 严禁为了“过门禁”而编写批处理脚本合成虚假的初审扣分、模板化占位符引句（如“原文具体短引句”）或捏造未发生物理变动的 `modified_panels`；
    - 流水线对审查输入指纹、真实章节引句、审阅人身份及前后修改差异进行全链条关系校验；运行时凭证可核验时予以核对，无法核验时记录为“未验证”，拒绝形式主义虚假通报。
 
 ---
 
-## 二、真实动漫工业 9 大专业子代理角色矩阵
+## 二、真实动漫工业 7 大专业子代理角色矩阵
 
-参考专业动漫制作委员会与条漫工作室的分工体系，设立 9 大专业子代理角色：
+参考专业动漫制作委员会与条漫工作室的分工体系，设立 7 大专业子代理角色：
 
 ```mermaid
 flowchart TD
-    subgraph LeadAgent["主代理（总导演 / 总制片人）—— 调度与终审，零下场干活"]
-        Director["总导演决策与流程推进"]
-        Scheduler["任务拆解与工单派发契约"]
+    subgraph LeadAgent["主代理（总导演）—— 调度与终审，零下场干活"]
+        Director["流程推进与交付验收"]
+        Scheduler["任务拆解与工单派发"]
         Arbiter["审查冲突仲裁与整改指令单"]
-        Gatekeeper["流水线机械门禁与里程碑放行 (CLI)"]
+        Gatekeeper["机械门禁 (CLI) 与锁定放行"]
     end
 
-    subgraph ScriptDept["编剧与文学部门 (Subagents)"]
-        Writer["1. 改编编剧师 (Screenwriter & Storyboarder)<br/>• 逐章精读与细节清单提取<br/>• 3-4格整宽逐格分镜草稿编写（常规3格、简单4格）"]
-        Reviser["2. 剧本改稿整改师 (Script Revision Specialist)<br/>• 专职接单整改被审核打回的剧本<br/>• 画格级增补/场景Establishing/笑点强化<br/>• 输出 before vs after 修改对比"]
+    subgraph ScriptDept["编剧与文学部门"]
+        Writer["1. 改编编剧师<br/>• 逐章精读与细节清单<br/>• 逐格分镜草稿"]
+        Reviser["2. 剧本改稿整改师<br/>• 承接驳回整改<br/>• 画格级增补与前后对比"]
     end
 
-    subgraph EditorialDept["编辑与审查部门 (Subagents)"]
-        AuditorAB["3. 红队剧本审评官 A & B (Script Auditors A & B)<br/>• 独立红队客观核查视角<br/>• 四大维度全面核查与原著证据绑定<br/>• 发现缺陷出具整改意见，无缺陷直接放行<br/>• 第二轮复审核销"]
-        ChiefEditor["4. 全卷文学终审编辑 (Lead Script Editor)<br/>• 全卷 coverage / continuity / comic 三轮拉网自校<br/>• 查杀脱离原文的虚构/魔改"]
+    subgraph EditorialDept["编辑与审查部门"]
+        AuditorAB["3. 红队审评官 A & B<br/>• 独立核查场景、高潮、幽默与台词<br/>• 绑定原文证据驳回"]
+        ChiefEditor["4. 全卷文学终审编辑<br/>• coverage / continuity / comic 三轮自校"]
     end
 
-    subgraph ArtDept["美术与设计部门 (Subagent)"]
-        ArtDir["5. 概念美术与人设设计师 (Art Director & Character Stylist)<br/>• 视觉风格指南与色彩/光影基调<br/>• 男女角色外貌/发型/服饰档案<br/>• 基准三视图/表情板提示词与参考报告"]
+    subgraph ArtDept["人物与场景档案"]
+        ArtDir["5. 概念美术与人设设计师<br/>• 视觉方向与角色文字档案<br/>• 形态版本与区分要点"]
     end
 
-    subgraph ProductionDept["排版提示词与渲染部门 (Subagents)"]
-        PromptEng["6. 分镜提示词工程师 (Prompt Engineer & Layout Artist)<br/>• 手机竖屏 (1080×2400) 提示词架构<br/>• 3-4格整宽纵排（常规3格、简单4格）/视觉焦点/建议字高48-60px/气泡定位"]
-        Renderer["7. 画面渲染执行员 (Render Operator)<br/>• begin-page 任务登记<br/>• 一次调用绘图工具生成原生整页 PNG<br/>• 原始图像资产存储与尝试状态记录"]
-    end
-
-    subgraph QADept["品控与交付部门 (Subagents)"]
-        Inspector["8. 画面与排版品控员 (Visual & Typography QA Inspector)<br/>• 手机 360/390/430px 多视口实测<br/>• 逐格核对五官/台词错漏/实测字高（放宽字体验收，字号不作为卡点）<br/>• qa-inputs 机械绑定与整页 QA 报告"]
-        Packager["9. 后制包装与交付员 (Post-Production & Packaging Operator)<br/>• prepare-pages 归档与缩略图生成<br/>• 汇总 review-layout 排版审阅<br/>• export 导出 HTML/PDF/CBZ 并运行 verify-export"]
+    subgraph DescDept["分镜描述"]
+        Describer["6. 分镜描述工程师<br/>• 每格自然语言画面描述<br/>• state_before / state_after 接续"]
     end
 
     Scheduler -->|派发章节原文| Writer
     Writer -->|提交分镜草稿| AuditorAB
     AuditorAB -->|初审扣分驳回清单| Arbiter
-    Arbiter -->|下达仲裁整改任务单| Reviser
-    Reviser -->|提交真实修改后画格| AuditorAB
-    AuditorAB -->|复审通过放行| ChiefEditor
-    ChiefEditor -->|三轮审查证据报告| Gatekeeper
-    Gatekeeper -->|lock-script 锁定剧本| ArtDir
-    ArtDir -->|角色档案与基准图| PromptEng
-    PromptEng -->|打磨就绪的完整页提示词| Renderer
-    Renderer -->|原生整页 PNG| Inspector
-    Inspector -->|整页 QA 报告| Gatekeeper
-    Gatekeeper -->|整卷页面验收就绪| Packager
-    Packager -->|全卷发布包与完整性验证| Director
+    Arbiter -->|下达整改任务单| Reviser
+    Reviser -->|提交修改后画格| AuditorAB
+    AuditorAB -->|复审通过| ChiefEditor
+    ChiefEditor -->|三轮审查报告| Gatekeeper
+    Gatekeeper -->|lock-script 锁定| ArtDir
+    ArtDir -->|角色与场景档案| Describer
+    Describer -->|分镜描述| Director
 ```
 
 ---
@@ -84,7 +73,7 @@ flowchart TD
 ### 1. 改编编剧师（Adaptive Screenwriter & Storyboarder）
 - **专属提示词**：[roles/screenwriter.md](../roles/screenwriter.md)
 - **现实对应**：主编剧 / 分镜台本师。
-- **职责范围**：按原文章节顺序，完整精读正文，提取三级证据细节清单（`docs/adaptation/<chapter_id>.md`），落实三大防遗漏铁律（关键场景氛围充分展开、核心高潮层层推进、幽默笑点原汁原味还原），编写逐场戏与 3~4 格整宽纵排逐格分镜草稿（`scripts/chapters/<chapter_id>.json`，常规3格、信息简单可4格）。
+- **职责范围**：按原文章节顺序，完整精读正文，提取三级证据细节清单（`docs/adaptation/<chapter_id>.md`），落实三大防遗漏铁律（关键场景氛围充分展开、核心高潮层层推进、幽默笑点原汁原味还原），编写逐场戏与逐格分镜草稿（`scripts/chapters/<chapter_id>.json`）。
 - **输入契约**：单章小说原文、项目人物档案（`docs/characters.md`）、美术指南（`docs/art_direction.md`）、前序章节交接状态。
 - **输出契约**：`docs/adaptation/<chapter_id>.md`、`scripts/chapters/<chapter_id>.json`。
 - **红线**：严禁过度概括跳步、严禁漏掉喜剧笑点、严禁自创新情节。
@@ -117,39 +106,16 @@ flowchart TD
 ### 5. 概念美术与人设设计师（Art Director & Character Stylist）
 - **专属提示词**：[roles/art_director.md](../roles/art_director.md)
 - **现实对应**：角色设计师 / 概念艺术总监。
-- **职责范围**：制定全剧视觉风格指南与色彩/光影基调（`docs/art_direction.md`），提炼角色档案（`docs/characters.md`），明确男女外貌特征、五官发型、体态服装与各阶段形态版本；撰写角色基准三视图与表情板提示词，出具参考质检报告（`reports/references/*.json`）。
+- **职责范围**：制定视觉方向（`docs/art_direction.md`），提炼角色档案（`docs/characters.md`），写清外貌、形态版本与区分要点。全部为文字，不产出图像与模型提示词。
 - **输入契约**：小说原著人物与场景描写。
-- **输出契约**：`docs/characters.md`、`docs/art_direction.md`、参考质检报告 JSON。
+- **输出契约**：`docs/characters.md`、`docs/art_direction.md`。
 
-### 6. 分镜提示词工程师（Prompt Engineer & Layout Artist）
+### 6. 分镜描述工程师（Panel Description Engineer）
 - **专属提示词**：[roles/prompt_engineer.md](../roles/prompt_engineer.md)
-- **现实对应**：构图排版师 / AI 提示词架构师。
-- **职责范围**：依据锁定分镜与角色基准，将单页 3~4 格整宽纵排布局（常规模式3格，信息简单可4格）、视觉中心、构图机位、原生台词气泡位置与手机建议字高（48–60 像素，仅作为设计参考，字体验收放宽不作为卡点）编译为单页完整出图提示词（遵循 `assets/page-prompt-template.md`），消除镜头冲突。
-- **输入契约**：锁定稿单页分镜数据、已登记角色基准图信息、手机排版规范。
-- **输出契约**：完整页出图提示词文件。
-
-### 7. 画面渲染执行员（Render Operator）
-- **专属提示词**：[roles/render_operator.md](../roles/render_operator.md)
-- **现实对应**：技术出图与资产登记员。
-- **职责范围**：接收提示词与参考图路径，运行 `begin-page` 登记，调用绘图工具请求一次完整竖屏 PNG（目标 1080×2400），将原生原图资产归档至 `art/pages/`，记录尝试编号与状态。
-- **输入契约**：打磨好的完整页提示词、登记的参考图路径、尝试编号。
-- **输出契约**：原生 1080×2400 漫画整页 PNG 文件。
-
-### 8. 画面与排版品控员（Visual & Typography QA Inspector）
-- **专属提示词**：[roles/qa_inspector.md](../roles/qa_inspector.md)
-- **现实对应**：作画监督 / 手机端品控质检员。
-- **职责范围**：在 360/390/430px 手机等比预览中核验原生整页，逐镜头核对格数（3~4格整宽纵排，常规3格、信息简单可4格）、五官结构、手肢线条、角色一致性；逐句核对锁定台词错别字、漏字、文字截断、气泡错指或遮挡脸部；实测正文显示字高（字体验收放宽，字号仅作为排版建议，字体大小不作为卡点）；读取 `qa-inputs` 机械绑定，撰写真实整页 QA 报告，执行 `finish-page` 或 `fail-page`。
-- **输入契约**：原生整页 PNG、手机等比预览图、锁定稿单页分镜与台词、`qa-inputs` 数据。
-- **输出契约**：真实整页 QA 报告。
-
-### 9. 后制包装与交付员（Post-Production & Packaging Operator）
-- **专属提示词**：[roles/packager.md](../roles/packager.md)
-- **现实对应**：后制剪辑 / 出版打包师。
-- **职责范围**：运行 `prepare-pages` 归档已验收页面并生成缩略图；整理页面排版审阅数据（`review-layout`）；运行 `export` 导出离线 HTML 阅读器、PDF、CBZ；运行 `verify-export` 校验交付文件完整性与可读性；汇总交付清单向总导演提交交付物报告。
-- **输入契约**：全卷已验收整页资产、分卷项目数据。
-- **输出契约**：导出的 HTML/PDF/CBZ 文件、交付完整性报告。
-
----
+- **现实对应**：分镜描述师。
+- **职责范围**：为每格写 `scene_text`、`state_before`、`state_after`，写清谁在场、在哪、做什么、什么表情、身上什么状态、说什么话。不写权重、画质词、LoRA、采样参数与任何画幅尺寸。
+- **输入契约**：锁定分镜、角色档案、场景与道具、原文。
+- **输出契约**：`prompts/panels/<panel_id>.json`。
 
 ## 四、核心流程：不合格剧本整改闭环（主导演绝不下场）
 
@@ -186,23 +152,20 @@ flowchart TD
 2. **派发时严格指定角色与单一注入**：主导演通过 `invoke_subagent` 唤起子代理时，必须明确指定其严格扮演的角色，并**仅将该子代理所属岗位的专属提示词文件内容（`roles/<role_name>.md`）注入该子代理的 Prompt 中**；
 3. **上下文完全物理隔离（严禁跨岗读取）**：**不同的角色不需要也不应读取其他角色的扮演提示词**。编剧子代理绝不读取品控员提示词，审核官绝不读取渲染员提示词，保持沙箱认知纯粹；
 4. **主导演自我扮演约束**：主代理自身亦必须严格扮演总导演（[roles/lead_director.md](../roles/lead_director.md)），行使统筹调度权，恪守“零下场干活”铁律；
-5. **子代理模型选用建议（建议与主代理保持一致）**：编剧精读、改稿增补、红队双审、提示词打磨与排版品控等专业子代理均涉及长文本深度理解与严格质检，派发时建议选用与主代理一致或同等水平的模型（若宿主环境支持继承或模型选择，优先对齐主代理），避免因选用弱模型导致剧情细节或审查项遗漏。
+5. **子代理模型选用建议（建议与主代理保持一致）**：编剧精读、改稿增补、红队双审与分镜描述等专业子代理均涉及长文本深度理解与严格质检，派发时建议选用与主代理一致或同等水平的模型（若宿主环境支持继承或模型选择，优先对齐主代理），避免因选用弱模型导致剧情细节或审查项遗漏。
 
 ### 角色提示词库索引清单
 
 | 角色代码 | 专属提示词文件 | 派发时角色名称 (Role) | 核心职责概述 |
 |---|---|---|---|
 | **lead_director** | [roles/lead_director.md](../roles/lead_director.md) | "Showrunner & Supervising Director" | 总导演中枢，全流程调度、工单派发与终审放行（严禁下场干活） |
-| **screenwriter** | [roles/screenwriter.md](../roles/screenwriter.md) | "Adaptive Screenwriter & Storyboarder" | 逐章精读原文、提取细节清单、编写 3~4 格整宽纵排分镜草稿（常规3格、简单4格） |
+| **screenwriter** | [roles/screenwriter.md](../roles/screenwriter.md) | "Adaptive Screenwriter & Storyboarder" | 逐章精读原文、提取细节清单、编写逐格分镜草稿 |
 | **script_reviser** | [roles/script_reviser.md](../roles/script_reviser.md) | "Script Reviser & Polish Specialist" | **专职承接驳回剧本整改**，执笔画格物理增补并输出前后对比 |
 | **script_auditor_a** | [roles/script_auditor_a.md](../roles/script_auditor_a.md) | "Red Team Script Auditor A" | 红队啄木鸟，量化审查场景 Establishing Shot 与剧情高潮推进 |
 | **script_auditor_b** | [roles/script_auditor_b.md](../roles/script_auditor_b.md) | "Red Team Script Auditor B" | 红队啄木鸟，量化审查幽默笑点包袱与角色对白性格 |
 | **chief_script_editor** | [roles/chief_script_editor.md](../roles/chief_script_editor.md) | "Chief Script Editor" | 全卷文学终审编辑，执行 coverage / continuity / comic 三轮拉网自校验 |
-| **art_director** | [roles/art_director.md](../roles/art_director.md) | "Art Director & Character Designer" | 制定美术风格指南与角色档案，编写基准图出图提示词 |
-| **prompt_engineer** | [roles/prompt_engineer.md](../roles/prompt_engineer.md) | "Storyboard Prompt Engineer" | 编译 1080×2400 原生整页提示词，规划 3~4 格纵排（常规3格、简单4格）与建议字高 48-60px |
-| **render_operator** | [roles/render_operator.md](../roles/render_operator.md) | "Render Operator" | 调用绘图工具一次性生成包含所有画格与气泡的原生整页 PNG |
-| **qa_inspector** | [roles/qa_inspector.md](../roles/qa_inspector.md) | "Comic Page QA Inspector" | 手机 360/390/430px 视口核验整页，实测字高（字体验收放宽，字号不作为卡点），提取 qa-inputs 填写真实 QA |
-| **packager** | [roles/packager.md](../roles/packager.md) | "Post-Production Packager & Deliverer" | 资产归档 (prepare-pages)、排版审阅、导出 HTML/PDF/CBZ 并校验 |
+| **art_director** | [roles/art_director.md](../roles/art_director.md) | "Art Director & Character Designer" | 制定视觉方向与角色文字档案（外观、形态版本、区分要点） |
+| **prompt_engineer** | [roles/prompt_engineer.md](../roles/prompt_engineer.md) | "Panel Description Engineer" | 为每格写自然语言画面描述与人物状态，模型无关 |
 
 ### 典型子代理派发 Prompt 模板示例
 
@@ -246,21 +209,23 @@ Prompt:
 - **红队审评官 B（笑点与台词）**：注入 [roles/script_auditor_b.md](../roles/script_auditor_b.md)，重点审查原著幽默笑点与人物性格台词；
 - **客观独立审查原则**：审查官依据真实小说文本独立核验打分，允许客观认定无缺陷并直接通过（Clean Pass），不设预设缺陷数量指标（不强制挑出 2–4 个缺陷），不预设初审结论，不限制初审得分区间。若存在重大缺陷，必须绑定原著真实逐字短引句并出具具体改稿建议。
 
-### 4. 画面与排版品控员 Prompt 模板
+### 4. 分镜描述工程师 Prompt 模板
 ```
-Role: "Visual & Typography QA Inspector"
+Role: "Panel Description Engineer"
 Prompt:
-你是一名严苛的作画监督与手机端排版品控员。请对页面 [页面ID] 的原生整页出图进行多视口可读性与画面质检。
+你负责为锁定分镜中的每一格写画面描述。
 输入资料：
-1. 原生 1080×2400 整页图片路径及等比手机预览图；
-2. 锁定分镜稿本页台词、人物与分格；
-3. qa-inputs 输出数据。
-核查重点：
-1. 检查整页是否为 3~4 格整宽纵排（常规3格、简单4格），无额外杂格或跨格融合；
-2. 逐格核对人物五官、线条、神态与角色基准图的一致性；
-3. 在 360/390/430px 视口下核查正文文字，实测正文显示字高（字体验收放宽，清晰易读即可，推荐约 16 CSS 像素，字体大小不作为卡点）；
-4. 逐句核对台词无错别字、漏字、截断，气泡不挡脸；
-5. 输出真实详细的整页 QA 报告，给出 finish-page 或 fail-page 判定。
+1. 当前章锁定分镜（panels 与 pages）；
+2. 角色档案（外观、形态版本、区分要点）；
+3. 场景与道具档案；
+4. 对应原文段落。
+要求：
+1. 每格写 scene_text，用自然语言说清谁在场、在哪、做什么、什么表情、身上什么状态；
+2. 写 state_before 与 state_after，服装、伤势、持有物、姿态都放这里；
+3. 下一格的 state_before 必须接上一格 state_after，改变要有原文依据；
+4. 对白逐字照抄，标清说话人与类型；
+5. 不写权重、画质词、LoRA、采样参数、画幅尺寸与任何模型字段。
+输出：prompts/panels/<panel_id>.json。
 ```
 
 ---
