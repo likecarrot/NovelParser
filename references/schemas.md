@@ -18,9 +18,9 @@ files 记录原始输入绝对路径、项目内 archive_path、格式、编码�
 |---|---|
 | 本卷 | outline：本卷结构与核心故事梗概（必须 100% 严格提炼自已确认正文，绝对禁止脑补编造）；ending：本卷实际原文真实收尾 |
 | style | genre、look、palette、selection_reason、reading_direction=ltr/rtl；art_direction 记录线条、明暗、色彩、背景等文字规范。不写画幅、字高、字体与参考图 |
-| character | id、name、aliases 数组、importance=major/supporting/minor；narrative 含 goal/motivation/voice/arc（必须忠实于原著人设事实）；visual 含 face_shape/eyes/brows/nose_mouth/body/posture/hair/age；source_facts、design_notes 数组 |
+| character | id、name、aliases 数组、importance=major/supporting/minor；narrative 含 goal/motivation/voice/arc（必须忠实于原著人设事实）；visual 必须含 face_shape/eyes/brows/nose_mouth/hair/body/posture/age 八项且每项可渲染，原文无依据的补全项写入 visual.invented_fields；source_facts、design_notes 数组 |
 | source_fact | text 与非空 source_unit_ids；必须为原文真实事实，设计注记不能写成原作事实 |
-| setting | id、description；可补空间布局、道具、参考路径/指纹与设计注记 |
+| setting | id、description、space、light、palette、material、fixtures、time；原文无依据的补全项写入 setting.invented_fields |
 | event | id、description（严格对应原著真实事件，绝不捏造新情节）、非空 source_unit_ids；每个事件必须在画格中出现 |
 | scene | id、chapter_id、setting_id；可补时刻、叙事层级、`reader_knows` / `character_knows`（读者与角色此刻知道什么）、`nsfw_level`（0-3） |
 | panel | id、chapter_id、scene_id、source_unit_ids、event_ids、cast、action、shot、space、expression、scene_text、state_before、state_after、dialogue（台词对白/旁白必须严格忠实于原著语义，严禁私自编造加戏）；可补 visual_plan 对象记录视觉中心、层次与局部色彩等；可补 `nsfw_level`（0-3，覆盖所在场景的级别）；可补 `extension_of` / `extension_kind` / `progress` / `new_information` 组成延长格 |
@@ -30,6 +30,32 @@ files 记录原始输入绝对路径、项目内 archive_path、格式、编码�
 | chapter_adaptation | 每个正文章恰好一条：chapter_id、document_path、document_sha256、details、unit_audits；具体字段与呈现证据见 [detail-records.md](detail-records.md) |
 
 panels 数组就是本卷镜头顺序；pages 按此顺序覆盖每格恰好一次，不能遗漏、重复或改变顺序。相同章号的不同卷使用不同内部 chapter_id。所有分镜内容严格忠于原著，严禁胡编乱造。
+
+### 硬性特征与补全
+
+人物和环境都有必须写满的特征清单。原文没有描写时不能留空，也不能写「原文未明确」，必须补一个符合设定的值，并在 `invented_fields` 里声明。
+
+人物 `visual` 八项：`face_shape`、`eyes`、`brows`、`nose_mouth`、`hair`、`body`、`posture`、`age`。
+
+场景六项：`space`、`light`、`palette`、`material`、`fixtures`、`time`。
+
+```json
+{
+  "visual": {
+    "face_shape": "窄长脸，颧骨略高",
+    "eyes": "细长眼，眼尾微垂",
+    "invented_fields": ["eyes", "face_shape"]
+  }
+}
+```
+
+规则：
+
+1. 每项都要能直接画出来，「很有故事感」这类不算。
+2. 出现「未明确」「未提及」「不详」「待定」等占位词，`check-script` 直接报错。
+3. 补全顺序：原文描写 → 同作品其他角色或场景的既有设定 → 题材与年代默认值。
+4. 补全值一经确定，全书沿用，跨卷复用同一档案。
+5. `invented_fields` 只能列清单内的字段，写错会报错。
 
 ### 读者与角色知情
 

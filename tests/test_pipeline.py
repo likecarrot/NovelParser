@@ -32,7 +32,12 @@ def fixture_script(source):
         'narrative': {key: '测试人物' for key in ('goal', 'motivation', 'voice', 'arc')},
         'visual': {key: '测试设定' for key in ('face_shape', 'eyes', 'brows', 'nose_mouth', 'body', 'posture', 'hair', 'age')},
         'source_facts': [], 'design_notes': ['机械测试夹具，不代表实际人物图']}]
-    script['settings'] = [{'id': 'room-a', 'description': '测试房间'}]
+    script['settings'] = [{
+        'id': 'room-a', 'description': '测试房间',
+        'space': '十平米方形房间，一扇窗一张书桌', 'light': '上午侧光从左侧窗户进入，色温偏冷',
+        'palette': '灰白墙面配浅木桌面', 'material': '水泥地面，墙面有轻微磨损',
+        'fixtures': '一张书桌、一把椅子、一只台灯', 'time': '上午，室内偏亮',
+    }]
     body = [u for u in source['units'] if u['kind'] == 'body']
     for chapter in source['chapters']:
         if chapter['has_body']:
@@ -182,6 +187,34 @@ class PipelineTests(unittest.TestCase):
         self.add_reviews()
         self.invoke('lock-script')
 
+
+    def test_required_traits_must_be_usable(self):
+        """Characters and settings need concrete traits; placeholders are rejected."""
+        script = self.prepare_script()
+        res = self.invoke('check-script')
+        self.assertFalse([e for e in res['errors'] if 'placeholder' in e], res['errors'])
+
+        script['characters'][0]['visual']['eyes'] = '原文未明确'
+        self.invoke('set-script', file=self.json_file(script))
+        res = self.invoke('check-script')
+        self.assertTrue([e for e in res['errors'] if 'placeholder' in e], res['errors'])
+
+        script['characters'][0]['visual']['eyes'] = '细长眼，眼尾略下垂'
+        script['characters'][0]['visual']['invented_fields'] = ['eyes']
+        self.invoke('set-script', file=self.json_file(script))
+        res = self.invoke('check-script')
+        self.assertFalse([e for e in res['errors'] if 'placeholder' in e], res['errors'])
+
+        script['characters'][0]['visual']['invented_fields'] = ['unknown_field']
+        self.invoke('set-script', file=self.json_file(script))
+        res = self.invoke('check-script')
+        self.assertTrue([e for e in res['errors'] if 'unknown field' in e], res['errors'])
+
+        script['characters'][0]['visual']['invented_fields'] = []
+        del script['settings'][0]['light']
+        self.invoke('set-script', file=self.json_file(script))
+        res = self.invoke('check-script')
+        self.assertTrue([e for e in res['errors'] if 'settings' in e and 'light' in e], res['errors'])
 
     def test_scene_knowledge_fields(self):
         """reader_knows is a string array; character_knows keys must be real characters."""

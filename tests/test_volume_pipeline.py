@@ -34,7 +34,12 @@ def fixture_volume_script(source):
         'visual': {key: '测试设定' for key in ('face_shape', 'eyes', 'brows', 'nose_mouth', 'body', 'posture', 'hair', 'age')},
         'source_facts': [], 'design_notes': ['机械测试夹具，不代表实际人物图']
     }]
-    script['settings'] = [{'id': 'room-a', 'description': '测试房间'}]
+    script['settings'] = [{
+        'id': 'room-a', 'description': '测试房间',
+        'space': '十平米方形房间，一扇窗一张书桌', 'light': '上午侧光从左侧窗户进入，色温偏冷',
+        'palette': '灰白墙面配浅木桌面', 'material': '水泥地面，墙面有轻微磨损',
+        'fixtures': '一张书桌、一把椅子、一只台灯', 'time': '上午，室内偏亮',
+    }]
     body = [u for u in source['units'] if u['kind'] == 'body']
     for chapter in source['chapters']:
         if chapter['has_body']:

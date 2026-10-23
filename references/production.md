@@ -36,6 +36,12 @@
 
 这两个字段可选，但写了就要和原文的揭示进度一致。角色知道而读者不知道，正是悬念的来源。
 
+## 缺失特征的补全
+
+人物八项、场景六项是硬性要求。原文没有描写时必须补出具体值，并写进 `invented_fields`。清单与补全顺序见 [characters.md](characters.md) 和 [art-direction.md](art-direction.md)。
+
+补全的目的是让同一角色、同一地点在全书保持同一张脸和同一个地方，不是给原文加戏。补全值不能改写剧情事实，也不能让后续情节因此改变。
+
 ## 状态账本
 
 每格的 `state_before` / `state_after` 记录角色可见状态。主字段固定为 `form`、`clothing`、`exposure`、`condition`、`injuries`、`held`、`posture`，特殊状态放进 `extension`，不要新增顶层键。

@@ -333,6 +333,41 @@ MODEL_PROMPT_TOKENS = (
     'solo,', 'nsfw,', 'explicit,', 'very aesthetic',
 )
 SCENE_TEXT_MIN = 20
+CHARACTER_VISUAL_FIELDS = ('face_shape', 'eyes', 'brows', 'nose_mouth', 'hair', 'body', 'posture', 'age')
+SETTING_FIELDS = ('space', 'light', 'palette', 'material', 'fixtures', 'time')
+PLACEHOLDER_MARKERS = (
+    '原文未明确', '原文未提及', '原文未写', '未明确', '未提及', '未描写',
+    '不详', '未知', '待定', '待补', '无描述',
+)
+TRAIT_MIN = 4
+
+
+def trait_errors(holder, fields, path):
+    """Required traits must be renderable text; invented ones must be declared."""
+    if not isinstance(holder, dict):
+        return [path + ': expected an object.']
+    errors = []
+    invented = holder.get('invented_fields', [])
+    if not isinstance(invented, list) or any(not nonempty(item) for item in invented):
+        errors.append(f'{path}.invented_fields: expected an array of field names.')
+        invented = []
+    for name in invented:
+        if name not in fields:
+            errors.append(f'{path}.invented_fields: unknown field {name}.')
+    for name in fields:
+        value = holder.get(name)
+        if not nonempty(value):
+            errors.append(f'{path}.{name}: required; fill a concrete value even if the source is silent.')
+            continue
+        text = str(value).strip()
+        if len(text) < TRAIT_MIN:
+            errors.append(f'{path}.{name}: too short to be usable; write a concrete description.')
+        for marker in PLACEHOLDER_MARKERS:
+            if marker in text:
+                errors.append(f'{path}.{name}: placeholder "{marker}" cannot be rendered; '
+                              'write a concrete value and list the field in invented_fields.')
+                break
+    return errors
 
 
 def knowledge_errors(scene, path, character_ids):
@@ -573,9 +608,7 @@ def script_errors(project, root=None):
             if not nonempty(narrative.get(key)):
                 errors.append(base + '.narrative.' + key + ': required nonempty string.')
         visual = obj(character.get('visual', {}), base + '.visual')
-        for key in ('face_shape', 'eyes', 'brows', 'nose_mouth', 'body', 'posture', 'hair', 'age'):
-            if not nonempty(visual.get(key)):
-                errors.append(base + '.visual.' + key + ': required nonempty string.')
+        errors.extend(trait_errors(visual, CHARACTER_VISUAL_FIELDS, base + '.visual'))
         if character.get('design_tier') not in ('lead', 'core', 'background'):
             errors.append(base + '.design_tier: expected lead, core, or background.')
         appearance = obj(character.get('appearance'), base + '.appearance')
@@ -747,6 +780,7 @@ def script_errors(project, root=None):
 
     for setting_id, setting in registries['settings'].items():
         entity_references(setting, f'script.settings[{setting_id}]')
+        errors.extend(trait_errors(setting, SETTING_FIELDS, f'script.settings[{setting_id}]'))
     for prop_id, prop in registries['props'].items():
         entity_references(prop, f'script.props[{prop_id}]')
     for scene_id, scene in registries['scenes'].items():
