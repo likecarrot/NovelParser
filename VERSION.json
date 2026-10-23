@@ -7,7 +7,7 @@
   "installed_at": "2026-10-11T12:20:00+08:00",
   "production_mode": "storyboard-script",
   "schema_version": 6,
-  "local_revision": "3.1.0-parser",
+  "local_revision": "3.2.0-parser",
   "customizations": [
     "image generation removed entirely: no page renderer, no layout, no export",
     "model-specific prompt templates removed: no Anima tags, no SDXL weights, no ComfyUI",
@@ -17,6 +17,8 @@
     "extension panels for sustained explicit scenes, no count limit",
     "state ledger with fixed core fields and an extension bucket",
     "scene_text required per panel, model prompt syntax rejected",
-    "reader_knows and character_knows on scenes"
+    "reader_knows and character_knows on scenes",
+    "eight required character traits and six required setting traits",
+    "placeholder traits such as \"原文未明确\" rejected; invented values declared in invented_fields"
   ]
 }
