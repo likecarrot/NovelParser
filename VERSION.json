@@ -7,7 +7,7 @@
   "installed_at": "2026-10-11T12:20:00+08:00",
   "production_mode": "storyboard-script",
   "schema_version": 6,
-  "local_revision": "3.3.0-parser",
+  "local_revision": "3.4.0-parser",
   "customizations": [
     "image generation removed entirely: no page renderer, no layout, no export",
     "model-specific prompt templates removed: no Anima tags, no SDXL weights, no ComfyUI",
@@ -22,6 +22,7 @@
     "placeholder traits rejected; invented values declared in invented_fields",
     "one neutral base portrait per appearance version, clothing and emotion banned",
     "derived looks restate the base in full, one default look per form",
-    "panels pin a look per character and must stand alone without pronouns or vague face phrases"
+    "panels pin a look per character and must stand alone without pronouns or vague face phrases",
+    "PROJECT_GUIDE.md generated on lock-script and via emit-guide for handover"
   ]
 }
