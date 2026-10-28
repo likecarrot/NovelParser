@@ -18,18 +18,64 @@ files 记录原始输入绝对路径、项目内 archive_path、格式、编码�
 |---|---|
 | 本卷 | outline：本卷结构与核心故事梗概（必须 100% 严格提炼自已确认正文，绝对禁止脑补编造）；ending：本卷实际原文真实收尾 |
 | style | genre、look、palette、selection_reason、reading_direction=ltr/rtl；art_direction 记录线条、明暗、色彩、背景等文字规范。不写画幅、字高、字体与参考图 |
-| character | id、name、aliases 数组、importance=major/supporting/minor；narrative 含 goal/motivation/voice/arc（必须忠实于原著人设事实）；visual 必须含 face_shape/eyes/brows/nose_mouth/hair/body/posture/age 八项且每项可渲染，原文无依据的补全项写入 visual.invented_fields；source_facts、design_notes 数组 |
+| character | id、name、aliases 数组、importance=major/supporting/minor；narrative 含 goal/motivation/voice/arc；visual 必须含 face_shape/eyes/brows/nose_mouth/hair/body/posture/age 八项且每项可渲染，补全项写入 visual.invented_fields；base_portraits 每个形态版本一张中性基准图；derived_looks 完整造型描述；source_facts、design_notes 数组 |
 | source_fact | text 与非空 source_unit_ids；必须为原文真实事实，设计注记不能写成原作事实 |
 | setting | id、description、space、light、palette、material、fixtures、time；原文无依据的补全项写入 setting.invented_fields |
 | event | id、description（严格对应原著真实事件，绝不捏造新情节）、非空 source_unit_ids；每个事件必须在画格中出现 |
 | scene | id、chapter_id、setting_id；可补时刻、叙事层级、`reader_knows` / `character_knows`（读者与角色此刻知道什么）、`nsfw_level`（0-3） |
-| panel | id、chapter_id、scene_id、source_unit_ids、event_ids、cast、action、shot、space、expression、scene_text、state_before、state_after、dialogue（台词对白/旁白必须严格忠实于原著语义，严禁私自编造加戏）；可补 visual_plan 对象记录视觉中心、层次与局部色彩等；可补 `nsfw_level`（0-3，覆盖所在场景的级别）；可补 `extension_of` / `extension_kind` / `progress` / `new_information` 组成延长格 |
+| panel | id、chapter_id、scene_id、source_unit_ids、event_ids、cast、action、shot、space、expression、scene_text、state_before、state_after、dialogue（台词对白/旁白必须严格忠实于原著语义，严禁私自编造加戏）；可补 visual_plan 对象记录视觉中心、层次与局部色彩等；可补 `nsfw_level`（0-3，覆盖所在场景的级别）；可补 `looks`（角色 ID → 衍生图 ID，缺省用默认造型）；可补 `extension_of` / `extension_kind` / `progress` / `new_information` 组成延长格 |
 | page | id、chapter_id、按阅读顺序排列的 panel_ids；rows 可选，仅表达阅读顺序。页内格数不设上限 |
 | continuity_handover | opening_state 与 closing_state，记录本卷开场继承与结末状态（人物状态、世界规则、未回收伏笔），供跨卷交接审查核验 |
 | source_disposition | unit_id、kind=context/repetition/paratext、reason；context 还需真实 panel_ids |
 | chapter_adaptation | 每个正文章恰好一条：chapter_id、document_path、document_sha256、details、unit_audits；具体字段与呈现证据见 [detail-records.md](detail-records.md) |
 
 panels 数组就是本卷镜头顺序；pages 按此顺序覆盖每格恰好一次，不能遗漏、重复或改变顺序。相同章号的不同卷使用不同内部 chapter_id。所有分镜内容严格忠于原著，严禁胡编乱造。
+
+### 基准图与衍生图
+
+角色图分三层。技能只输出文字，不生成图片：
+
+1. **基准图**（`base_portraits`）：每个形态版本一张，只描述身体与面部，不含服装、道具、场景、情绪。用于文生图得到标准像。
+2. **衍生图**（`derived_looks`）：完整重述基准特征，再写服装与状态变化。基于基准图做图生图。
+3. **分镜图**：在某个衍生图之上生成，由 `panel.looks` 指定。
+
+```json
+{
+  "appearance_versions": [{"id": "base"}],
+  "base_portraits": [{
+    "id": "base",
+    "description": "成年男性，中等身高…（至少 80 字，只写身体与面部）",
+    "framing": "正面全身，自然站姿，纯色中性背景，均匀正面光",
+    "excludes": "服装、道具、场景、情绪、文字"
+  }],
+  "derived_looks": [{
+    "id": "white_coat",
+    "label": "白大褂",
+    "form": "base",
+    "is_default": true,
+    "description": "成年男性，中等身高…（重述基准特征），穿白大褂…"
+  }]
+}
+```
+
+规则：
+
+- 基准图 id 必须与形态版本 id 一一对应。身体层面发生根本变化（年龄跨度、变身、毁容、长期伤残）才新增形态版本与基准图；换装、换发型、脏污、可恢复伤势属于衍生图。
+- 基准图不得出现服装词或情绪词，出现即报错。
+- 衍生图必须写完整描述，不能只写「身着华服」这样的增量。
+- 每个形态版本至少一个衍生图，且恰好一个 `is_default`。
+- 分镜用 `looks` 指定造型；不写则用默认造型。
+
+### 分镜自包含
+
+每个 `scene_text` 必须能单独读懂，不依赖前后格：
+
+- `cast` 中的每个角色都要在描述里点名，不能用「他」「她」
+- 不使用「眼神空洞」「目光空洞」这类脱离上下文就失真的短语，改写为可见线索
+
+```json
+"scene_text": "白玲坐在办公桌前低头翻书，眼睛半睁，视线落在纸页上，眼白略多。"
+```
 
 ### 硬性特征与补全
 

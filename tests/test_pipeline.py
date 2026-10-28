@@ -28,6 +28,18 @@ def fixture_script(source):
         'appearance': {'gender_presentation': 'masculine', 'requirements': '机械测试男性造型', 'source_unit_ids': []},
         'identity_card': {**{key: '机械身份锚点' for key in ('face', 'eyes_brows', 'nose_mouth', 'body', 'posture', 'temperament')}, 'invariants': ['测试脸型']},
         'appearance_versions': [{'id': 'base', 'description': '测试基础衣着', 'visual': {'costume': 'coat-a'}}],
+        'base_portraits': [{
+            'id': 'base',
+            'description': '成年男性，中等身高，肩线平直，四肢比例匀称，手指修长，站姿放松，重心平均落在双脚。'
+                           '面部轮廓清晰，颧骨略高，下颌线利落，鼻梁挺直，眼型细长，眉毛浓淡适中。'
+                           '短发齐耳，发质偏硬，发际线整齐。肤色均匀偏浅，皮肤质感干净，面部与手部无明显疤痕或胎记。',
+            'framing': '正面全身，自然站姿，双臂自然下垂，纯色中性背景，均匀正面光',
+            'excludes': '服装、道具、场景、情绪、文字'}],
+        'derived_looks': [{
+            'id': 'daily', 'label': '日常', 'form': 'base', 'is_default': True,
+            'description': '成年男性，中等身高，肩线平直，四肢比例匀称，面部轮廓清晰，颧骨略高，下颌线利落，'
+                           '鼻梁挺直，眼型细长，短发齐耳。上身穿浅灰色外套，内搭白色衬衫，下身深色长裤，'
+                           '脚穿深色皮鞋，衣领整齐，外套扣好，袖口平整，整体干净利落。'}],
         'comparison_with': [], 'distinctions': [],
         'narrative': {key: '测试人物' for key in ('goal', 'motivation', 'voice', 'arc')},
         'visual': {key: '测试设定' for key in ('face_shape', 'eyes', 'brows', 'nose_mouth', 'body', 'posture', 'hair', 'age')},
@@ -187,6 +199,47 @@ class PipelineTests(unittest.TestCase):
         self.add_reviews()
         self.invoke('lock-script')
 
+
+    def test_portrait_rules_unit(self):
+        """Portraits stay neutral and cover every appearance version."""
+        body = '肩线平直，四肢匀称，面部轮廓清晰，鼻梁挺直，眼型细长，短发齐耳，肤色均匀。' * 3
+        character = {
+            'appearance_versions': [{'id': 'base'}],
+            'base_portraits': [{'id': 'base', 'description': '身穿白大褂的成年男性，' + body,
+                                'framing': '正面全身', 'excludes': '服装'}],
+            'derived_looks': [{'id': 'd1', 'label': '日常', 'form': 'base',
+                               'description': body, 'is_default': True}],
+        }
+        errors = cp.portrait_errors(character, 'c')
+        self.assertTrue(any('clothing word' in e for e in errors), errors)
+
+        character['base_portraits'][0]['description'] = '眼神空洞的成年男性，' + body
+        errors = cp.portrait_errors(character, 'c')
+        self.assertTrue(any('emotion word' in e for e in errors), errors)
+
+        missing = {'appearance_versions': [{'id': 'base'}, {'id': 'young'}], 'base_portraits': []}
+        errors = cp.portrait_errors(missing, 'c')
+        self.assertTrue(any('missing portrait' in e for e in errors), errors)
+
+        bad_look = {'appearance_versions': [{'id': 'base'}],
+                    'derived_looks': [{'id': 'd1', 'label': '日常', 'form': 'young',
+                                       'description': body}]}
+        errors = cp.look_errors(bad_look, 'c')
+        self.assertTrue(any('unknown appearance version' in e for e in errors), errors)
+
+    def test_scene_text_must_stand_alone(self):
+        """A panel must name its cast and avoid pronouns or vague face phrases."""
+        script = self.prepare_script()
+        script['panels'][0]['scene_text'] = '测试房间内，他站在窗边，手里拿着信封，左侧光线落在桌面上。'
+        self.invoke('set-script', file=self.json_file(script))
+        res = self.invoke('check-script')
+        self.assertTrue([e for e in res['errors'] if 'pronouns' in e], res['errors'])
+        self.assertTrue([e for e in res['errors'] if 'name 甲 explicitly' in e], res['errors'])
+
+        script['panels'][0]['scene_text'] = '测试房间内，甲站在窗边，眼神空洞，左侧光线落在桌面上。'
+        self.invoke('set-script', file=self.json_file(script))
+        res = self.invoke('check-script')
+        self.assertTrue([e for e in res['errors'] if 'ambiguous out of context' in e], res['errors'])
 
     def test_required_traits_must_be_usable(self):
         """Characters and settings need concrete traits; placeholders are rejected."""

@@ -340,6 +340,130 @@ PLACEHOLDER_MARKERS = (
     '不详', '未知', '待定', '待补', '无描述',
 )
 TRAIT_MIN = 4
+PORTRAIT_MIN = 80
+LOOK_MIN = 80
+EMOTION_WORDS = (
+    '空洞', '狰狞', '妖艳', '淫荡', '妩媚', '狼狈', '惊恐', '绝望', '邪恶',
+    '狠毒', '悲伤', '愤怒', '喜悦', '恐惧', '厌恶', '兴奋', '羞耻', '迷离', '失神',
+)
+CLOTHING_WORDS = (
+    '白大褂', '衬衫', '长裤', '短裤', '裙子', '外套', '制服', '内衣', '胸罩',
+    '短袖', '长袖', '领带', '围巾', '斗篷', '连衣裙',
+)
+EXTREME_FACE_PHRASES = (
+    '眼神空洞', '目光空洞', '双目无神', '眼神迷离', '眼波流转',
+    '媚眼如丝', '眼神涣散', '两眼发直', '眼神幽深',
+)
+PRONOUN_RE = re.compile(r'她|(?<!其)他(?!乡|日|处|人)')
+NAME_ALIAS_SKIP = {'我', '你', '他', '她', '它'}
+
+
+def portrait_errors(character, path):
+    """One neutral portrait per appearance version; no clothing, no emotion."""
+    errors = []
+    versions = {v.get('id') for v in character.get('appearance_versions', []) if isinstance(v, dict)}
+    portraits = character.get('base_portraits')
+    if not isinstance(portraits, list) or not portraits:
+        errors.append(f'{path}.base_portraits: required; one neutral portrait per appearance version.')
+        portraits = []
+    seen = set()
+    for index, item in enumerate(portraits):
+        where = f'{path}.base_portraits[{index}]'
+        if not isinstance(item, dict):
+            errors.append(where + ': expected an object.')
+            continue
+        pid = item.get('id')
+        if not nonempty(pid):
+            errors.append(where + '.id: required.')
+        elif pid in seen:
+            errors.append(where + '.id: duplicate portrait id.')
+        else:
+            seen.add(pid)
+            if pid not in versions:
+                errors.append(where + f'.id: {pid} has no matching appearance version.')
+        text = str(item.get('description') or '').strip()
+        if len(text) < PORTRAIT_MIN:
+            errors.append(where + f'.description: write at least {PORTRAIT_MIN} characters of neutral body description.')
+        else:
+            for word in EMOTION_WORDS:
+                if word in text:
+                    errors.append(where + f'.description: remove emotion word "{word}"; a portrait is neutral.')
+            for word in CLOTHING_WORDS:
+                if word in text:
+                    errors.append(where + f'.description: remove clothing word "{word}"; clothing belongs to derived looks.')
+        if not nonempty(item.get('framing')):
+            errors.append(where + '.framing: required; state angle, pose and background.')
+        if not nonempty(item.get('excludes')):
+            errors.append(where + '.excludes: required; list what must not appear.')
+    for vid in sorted(versions - seen):
+        errors.append(f'{path}.base_portraits: missing portrait for appearance version {vid}.')
+    return errors
+
+
+def look_errors(character, path):
+    """Derived looks restate the base and are tied to one appearance version."""
+    errors = []
+    versions = {v.get('id') for v in character.get('appearance_versions', []) if isinstance(v, dict)}
+    looks = character.get('derived_looks')
+    if not isinstance(looks, list) or not looks:
+        errors.append(f'{path}.derived_looks: required; at least one complete look per character.')
+        looks = []
+    seen = set()
+    defaults = {}
+    covered = set()
+    for index, item in enumerate(looks):
+        where = f'{path}.derived_looks[{index}]'
+        if not isinstance(item, dict):
+            errors.append(where + ': expected an object.')
+            continue
+        lid = item.get('id')
+        if not nonempty(lid):
+            errors.append(where + '.id: required.')
+        elif lid in seen:
+            errors.append(where + '.id: duplicate look id.')
+        else:
+            seen.add(lid)
+        if not nonempty(item.get('label')):
+            errors.append(where + '.label: required.')
+        form = item.get('form')
+        if form not in versions:
+            errors.append(where + f'.form: unknown appearance version {form}.')
+        else:
+            covered.add(form)
+            if item.get('is_default'):
+                defaults.setdefault(form, []).append(lid)
+        text = str(item.get('description') or '').strip()
+        if len(text) < LOOK_MIN:
+            errors.append(where + f'.description: write at least {LOOK_MIN} characters; restate the base then describe the change.')
+    for form, ids in defaults.items():
+        if len(ids) > 1:
+            errors.append(f'{path}.derived_looks: multiple default looks for form {form}: {", ".join(ids)}.')
+    for form in sorted(versions - covered):
+        errors.append(f'{path}.derived_looks: no look for appearance version {form}.')
+    return errors
+
+
+def self_contained_errors(panel, cast, characters, path):
+    """A panel must read correctly without its neighbours."""
+    text = str(panel.get('scene_text') or '').strip()
+    if not text:
+        return []
+    errors = []
+    for cid in cast:
+        character = characters.get(cid) or {}
+        names = [character.get('name')] + [
+            alias for alias in (character.get('aliases') or []) if alias not in NAME_ALIAS_SKIP
+        ]
+        if not any(name and name in text for name in names):
+            label = character.get('name') or cid
+            errors.append(f'{path}.scene_text: name {label} explicitly; this panel must stand alone.')
+    if PRONOUN_RE.search(text):
+        errors.append(f'{path}.scene_text: avoid pronouns 他/她; use names or stable epithets.')
+    for phrase in EXTREME_FACE_PHRASES:
+        if phrase in text:
+            errors.append(f'{path}.scene_text: "{phrase}" is ambiguous out of context; '
+                          'describe visible cues such as eye direction and eyelid position.')
+    return errors
 
 
 def trait_errors(holder, fields, path):
@@ -609,6 +733,8 @@ def script_errors(project, root=None):
                 errors.append(base + '.narrative.' + key + ': required nonempty string.')
         visual = obj(character.get('visual', {}), base + '.visual')
         errors.extend(trait_errors(visual, CHARACTER_VISUAL_FIELDS, base + '.visual'))
+        errors.extend(portrait_errors(character, base))
+        errors.extend(look_errors(character, base))
         if character.get('design_tier') not in ('lead', 'core', 'background'):
             errors.append(base + '.design_tier: expected lead, core, or background.')
         appearance = obj(character.get('appearance'), base + '.appearance')
@@ -925,6 +1051,25 @@ def script_errors(project, root=None):
             if unexplained_within:
                 errors.append(f'script.panels[{pid}].state_after[{cid}]: unexplained within-panel changes/removals: {", ".join(sorted(unexplained_within))}.')
             previous_states[cid] = after
+
+        look_map = panel.get('looks')
+        if look_map is not None:
+            if not isinstance(look_map, dict):
+                errors.append(f'script.panels[{pid}].looks: expected an object keyed by character ID.')
+            else:
+                for cid, look_id in look_map.items():
+                    if cid not in cast:
+                        errors.append(f'script.panels[{pid}].looks[{cid}]: key must belong to cast.')
+                        continue
+                    character = registries['characters'].get(cid, {})
+                    items = {item.get('id'): item for item in character.get('derived_looks', [])
+                             if isinstance(item, dict)}
+                    if look_id not in items:
+                        errors.append(f'script.panels[{pid}].looks[{cid}]: unknown look {look_id}.')
+                    elif items[look_id].get('form') != appearance_versions.get(cid, 'base'):
+                        errors.append(f'script.panels[{pid}].looks[{cid}]: look {look_id} belongs to '
+                                      f'form {items[look_id].get("form")}, not {appearance_versions.get(cid, "base")}.')
+        errors.extend(self_contained_errors(panel, cast, registries['characters'], f'script.panels[{pid}]'))
 
         dialogue = panel.get('dialogue', [])
         if not isinstance(dialogue, list):
