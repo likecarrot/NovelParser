@@ -200,6 +200,25 @@ class PipelineTests(unittest.TestCase):
         self.invoke('lock-script')
 
 
+    def test_emit_guide_describes_the_delivery(self):
+        """emit-guide writes a handover document next to the volume directory."""
+        self.prepare_script()
+        self.invoke('emit-guide')
+        guide = self.root.parent / 'PROJECT_GUIDE.md'
+        self.assertTrue(guide.is_file())
+        text = guide.read_text(encoding='utf-8')
+        self.assertIn('唯一权威数据源', text)
+        self.assertIn('project.json', text)
+        self.assertIn('panel_ids', text)
+        self.assertIn('scene_text', text)
+
+    def test_lock_writes_project_guide(self):
+        """Locking the script refreshes the handover document automatically."""
+        self.locked()
+        guide = self.root.parent / 'PROJECT_GUIDE.md'
+        self.assertTrue(guide.is_file())
+        self.assertIn('已锁定', guide.read_text(encoding='utf-8'))
+
     def test_portrait_rules_unit(self):
         """Portraits stay neutral and cover every appearance version."""
         body = '肩线平直，四肢匀称，面部轮廓清晰，鼻梁挺直，眼型细长，短发齐耳，肤色均匀。' * 3

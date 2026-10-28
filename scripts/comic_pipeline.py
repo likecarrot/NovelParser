@@ -2274,6 +2274,279 @@ def split_source(book_dir, file_path, output_dir=None, pattern=None):
     }
 
 
+GUIDE_NAME = 'PROJECT_GUIDE.md'
+
+
+def guide_volumes(book_dir):
+    out = []
+    try:
+        children = sorted(Path(book_dir).iterdir())
+    except OSError:
+        return out
+    for child in children:
+        if not child.is_dir():
+            continue
+        path = child / 'project.json'
+        if not path.is_file():
+            continue
+        try:
+            out.append((child, json.loads(path.read_text(encoding='utf-8'))))
+        except (OSError, ValueError):
+            continue
+    return out
+
+
+def project_guide_markdown(book_dir, volume_dir, project):
+    """Describe the delivered files so another AI can read the project without guessing."""
+    book_dir = Path(book_dir)
+    volume_dir = Path(volume_dir)
+    volumes = guide_volumes(book_dir)
+    script = project.get('script') or {}
+    source = project.get('source') or {}
+    lock = project.get('script_lock') or {}
+    title = project.get('title') or book_dir.name
+    volume = project.get('volume') or volume_dir.name
+
+    def count(key):
+        value = script.get(key)
+        return len(value) if isinstance(value, list) else 0
+
+    def items(key):
+        value = script.get(key)
+        return value if isinstance(value, list) else []
+
+    panels = count('panels')
+    pages = count('pages')
+    scenes = count('scenes')
+    events = count('events')
+    characters = count('characters')
+    settings = count('settings')
+    units = len(source.get('units') or []) if isinstance(source.get('units'), list) else 0
+    extensions = sum(1 for p in items('panels') if isinstance(p, dict) and p.get('extension_of'))
+    with_text = sum(1 for p in items('panels')
+                    if isinstance(p, dict) and len(str(p.get('scene_text') or '').strip()) >= SCENE_TEXT_MIN)
+    portraits = sum(len(c.get('base_portraits') or []) for c in items('characters') if isinstance(c, dict))
+    looks = sum(len(c.get('derived_looks') or []) for c in items('characters') if isinstance(c, dict))
+
+    has_full = (volume_dir / 'full-script.md').is_file()
+    has_chapters = (volume_dir / 'scripts' / 'chapters').is_dir()
+    has_adapt = (volume_dir / 'docs' / 'adaptation').is_dir()
+    has_qa = (volume_dir / 'reports' / 'qa').is_dir()
+    has_stage = (volume_dir / 'reports' / 'stage_reviews').is_dir()
+    has_work = (volume_dir / 'work').is_dir()
+    has_split = (book_dir / 'split_texts').is_dir()
+
+    out = []
+    out.append(f'# 《{title}》项目数据说明')
+    out.append('')
+    out.append(f'> 由 NovelParser 自动生成于 {now()}，重新锁定或执行 emit-guide 会覆盖本文件。')
+    out.append('> 用途：让接手本项目的 AI 或程序在不猜测的前提下读取数据。')
+    out.append('')
+    out.append('## 一句话')
+    out.append('')
+    out.append(f'**唯一权威数据源是 `{volume_dir.name}/project.json`。** '
+               '其他文件要么是它的渲染结果，要么是证据、审查记录或构建过程产物。')
+    out.append('读取分镜内容只认 `project.json`，不要从 `full-script.md` 反解析，也不要读 `work/`。')
+    out.append('')
+
+    out.append('## 目录结构')
+    out.append('')
+    out.append('```text')
+    out.append(f'{book_dir.name}/')
+    out.append('├── README.md                      全书看板与流程说明（人读）')
+    out.append('├── PROJECT_GUIDE.md               本文件，数据结构说明')
+    out.append('├── docs/                          书级文档（人读）')
+    if has_split:
+        out.append('├── split_texts/                   按卷切分的正文')
+    out.append('├── source_texts/                  原始小说归档与归档清单')
+    for child, other in volumes:
+        mark = '  ← 本文件描述的卷' if child.resolve() == volume_dir.resolve() else ''
+        out.append(f'└── {child.name}/{" " * max(0, 28 - len(child.name))}{mark}'.rstrip())
+        out.append(f'    ├── project.json               ★ 唯一权威数据源')
+        if (child / 'full-script.md').is_file():
+            out.append('    ├── full-script.md             人读分镜剧本，由 project.json 渲染')
+        if (child / 'scripts' / 'chapters').is_dir():
+            out.append('    ├── scripts/chapters/          章级草稿，与 project.json 的 script 同构')
+        if (child / 'docs' / 'adaptation').is_dir():
+            out.append('    ├── docs/adaptation/           原文到分镜的证据链')
+        if (child / 'reports').is_dir():
+            out.append('    ├── reports/                   审查记录')
+        if (child / 'work').is_dir():
+            out.append('    └── work/                      构建中间产物，读取数据时忽略')
+    out.append('```')
+    out.append('')
+
+    out.append('## 文件作用')
+    out.append('')
+    out.append('| 文件 | 作用 | 读取建议 |')
+    out.append('|---|---|---|')
+    out.append(f'| `{volume_dir.name}/project.json` | 全卷剧本、原文索引、人物、场景、审查、锁 | **必读，唯一数据源** |')
+    if has_full:
+        out.append(f'| `{volume_dir.name}/full-script.md` | 同一份剧本的 Markdown 渲染版 | 只在给人看时读，不要反解析 |')
+    if has_chapters:
+        out.append(f'| `{volume_dir.name}/scripts/chapters/*.json` | 章级草稿，结构与 script 相同 | 可选，内容与 project.json 一致 |')
+    if has_adapt:
+        out.append(f'| `{volume_dir.name}/docs/adaptation/*.md` | 原文到分镜的证据链 | 需要核对忠实度时读 |')
+    if has_qa:
+        out.append(f'| `{volume_dir.name}/reports/qa/*.json` | 三轮审查结论与证据 | 需要知道审查状态时读 |')
+    if has_stage:
+        out.append(f'| `{volume_dir.name}/reports/stage_reviews/**` | 阶段双审的原始报告与整改记录 | 一般不必读 |')
+    if has_work:
+        out.append(f'| `{volume_dir.name}/work/**` | 构建脚本、分场草稿、中间 JSON | **不要读**，可能落后于正式数据 |')
+    out.append('| `source_texts/*.txt` | 原始小说 | 只在需要原稿时读 |')
+    out.append('')
+
+    out.append('## project.json 顶层')
+    out.append('')
+    out.append('```json')
+    out.append('{')
+    out.append(f'  "schema_version": {project.get("schema_version", 6)},')
+    out.append(f'  "revision": {project.get("revision", 0)},')
+    out.append(f'  "title": "{title}",')
+    out.append(f'  "volume": "{volume}",')
+    out.append('  "source": { "files": [], "chapters": [], "units": [], "confirmed": true },')
+    out.append('  "script": { "characters": [], "settings": [], "events": [], "scenes": [], "panels": [], "pages": [] },')
+    out.append('  "reviews": [],')
+    out.append('  "script_lock": { "script_hash": "...", "locked_at": "..." },')
+    out.append('  "continuity_handover": {}')
+    out.append('}')
+    out.append('```')
+    out.append('')
+    if lock:
+        out.append(f'`script_lock` 存在，说明剧本已锁定。当前指纹 `{str(lock.get("script_hash", ""))[:16]}`。')
+    else:
+        out.append('`script_lock` 目前为空，说明剧本尚未锁定，内容仍可能变动。')
+    out.append('')
+
+    out.append('## 本卷数据量')
+    out.append('')
+    out.append('| 项 | 数量 |')
+    out.append('|---|---|')
+    out.append(f'| 章节 | {count("chapter_adaptations") or len(source.get("chapters") or [])} |')
+    out.append(f'| 场景 | {scenes} |')
+    out.append(f'| 事件 | {events} |')
+    out.append(f'| 人物 | {characters} |')
+    out.append(f'| 设定 | {settings} |')
+    out.append(f'| 分镜 | {panels} |')
+    out.append(f'| 页面 | {pages} |')
+    out.append(f'| 原文单元 | {units} |')
+    out.append(f'| 延长格 | {extensions} |')
+    out.append(f'| 有 scene_text 的格 | {with_text} / {panels} |')
+    out.append(f'| 基准图 / 衍生图 | {portraits} / {looks} |')
+    out.append('')
+
+    out.append('## 核心对象字段')
+    out.append('')
+    out.append('### panel（分镜）')
+    out.append('')
+    out.append('`id`、`chapter_id`、`scene_id`、`source_unit_ids`、`event_ids`、`cast`、`shot`、`space`、'
+               '`action`、`expression`、`scene_text`、`dialogue`、`state_before`、`state_after`、'
+               '`appearance_versions`、`nsfw_level`。')
+    out.append('')
+    out.append('- `cast` 是角色 **ID**，显示名要查 `characters[].name`')
+    out.append('- `dialogue[].kind` 取 `speech` / `thought` / `caption` / `sfx`')
+    out.append('- 状态主字段固定七个：`form`、`clothing`、`exposure`、`condition`、`injuries`、`held`、`posture`，'
+               '额外状态在 `extension`')
+    out.append('- 延长格额外带 `extension_of`、`extension_kind`、`progress`、`new_information`')
+    out.append('- `looks` 可选，角色 ID → 衍生图 ID，缺省用默认造型')
+    out.append('')
+    out.append('### scene（场景）')
+    out.append('')
+    out.append('`id`、`chapter_id`、`setting_id`、`nsfw_level`、`reader_knows`、`character_knows`。')
+    out.append('`reader_knows` 是读者此刻已知，`character_knows` 按角色记录，用于防止提前剧透。')
+    out.append('')
+    out.append('### page（阅读顺序）')
+    out.append('')
+    out.append('`id`、`chapter_id`、`panel_ids`、`narrative`。**顺序只由 `panel_ids` 决定，不要按 panel id 排序。**')
+    out.append('')
+    out.append('### character（人物）')
+    out.append('')
+    out.append('`id`、`name`、`aliases`、`importance`、`design_tier`、`narrative`、`visual`、`appearance`、'
+               '`appearance_versions`、`base_portraits`、`derived_looks`、`distinctions`。')
+    out.append('')
+    out.append('`base_portraits` 是中性基准图，每个形态版本一张，不含服装与情绪；'
+               '`derived_looks` 是完整造型描述，`is_default` 表示默认造型。')
+    out.append('')
+    out.append('### setting（环境）')
+    out.append('')
+    out.append('`id`、`description`、`space`、`light`、`palette`、`material`、`fixtures`、`time`。')
+    out.append('')
+    out.append('### source.unit（原文单元）')
+    out.append('')
+    out.append('`id`、`chapter_id`、`kind`、`text`、`locator`。'
+               '`locator.file` 是绝对路径，换机器会失效，**要原文就取 `text`**。')
+    out.append('')
+
+    out.append('## 推荐读取顺序')
+    out.append('')
+    out.append(f'1. 读 `{volume_dir.name}/project.json`，UTF-8 解码')
+    out.append('2. 检查 `script_lock.script_hash` 是否存在')
+    out.append('3. 建三个映射：`characters`、`source.units`、`panels`')
+    out.append('4. 按 `script.pages` 遍历，每页按 `panel_ids` 取分镜')
+    out.append('5. 需要场景氛围时查 `scenes` 与 `settings`')
+    out.append('6. 需要核对忠实度时，用 `source_unit_ids` 去 `units` 取原文')
+    out.append('')
+
+    out.append('## 最小读取示例')
+    out.append('')
+    out.append('```python')
+    out.append('import json')
+    out.append('from pathlib import Path')
+    out.append('')
+    out.append(f'vol = Path(r".../{volume_dir.name}")')
+    out.append('data = json.loads((vol / "project.json").read_text(encoding="utf-8"))')
+    out.append('script = data["script"]')
+    out.append('')
+    out.append('chars = {c["id"]: c["name"] for c in script["characters"]}')
+    out.append('units = {u["id"]: u["text"] for u in data["source"]["units"]}')
+    out.append('panels = {p["id"]: p for p in script["panels"]}')
+    out.append('')
+    out.append('for page in script["pages"]:')
+    out.append('    for pid in page["panel_ids"]:')
+    out.append('        p = panels[pid]')
+    out.append('        print(pid, p["shot"], "、".join(chars.get(c, c) for c in p["cast"]))')
+    out.append('        print("  " + p["scene_text"])')
+    out.append('```')
+    out.append('')
+
+    out.append('## 容易出错的地方')
+    out.append('')
+    out.append('1. **别按 panel id 排序**，顺序只认 `pages[].panel_ids`')
+    out.append('2. **`cast` 是 ID 不是名字**，显示要查 `characters`')
+    out.append('3. **状态字段固定七个**，自定义项在 `extension` 里')
+    if has_work:
+        out.append('4. **不要读 `work/`**，里面是构建中间产物，可能与正式数据不一致')
+    out.append('5. **不要反解析 `full-script.md`**，它丢失了字段结构，只适合人读')
+    out.append('6. **原文用 `units[].text`**，不要用 `locator.file` 去读磁盘')
+    out.append('7. **`nsfw_level` 两层**：panel 有值时优先，否则继承 scene')
+    out.append('8. **延长格不是新事件**，统计事件覆盖时不要重复计数')
+    out.append('9. **JSON 一律 UTF-8**，原始 txt 可能是 UTF-8 BOM，用 `utf-8-sig` 读')
+    out.append('')
+
+    if len(volumes) > 1:
+        out.append('## 多卷')
+        out.append('')
+        out.append('| 卷 | 分镜 | 页面 | 锁定 |')
+        out.append('|---|---|---|---|')
+        for child, other in volumes:
+            other_script = other.get('script') or {}
+            out.append(f'| {child.name} | {len(other_script.get("panels") or [])} | '
+                       f'{len(other_script.get("pages") or [])} | '
+                       f'{"是" if other.get("script_lock") else "否"} |')
+        out.append('')
+
+    return '\n'.join(out) + '\n'
+
+
+def write_project_guide(root, project):
+    root = Path(root).resolve()
+    book_dir = root.parent
+    text = project_guide_markdown(book_dir, root, project)
+    target = book_dir / GUIDE_NAME
+    target.write_text(text, encoding='utf-8')
+    return target
+
+
 def write_volume_readme(root, project):
     """Write or update volume-level README.md and modular docs/ directory recording important information for this volume."""
     root = Path(root).resolve()
@@ -2758,6 +3031,11 @@ def run(args):
         project['script_lock'] = {'script_hash': fingerprint, 'source_index_hash': project['source_index_hash'],
                                   'reviews_hash': digest(project['reviews']), 'locked_at': now()}
         (root / 'full-script.md').write_text(script_markdown(project), encoding='utf-8')
+    elif command == 'emit-guide':
+        if not root:
+            raise GateError('emit-guide requires a volume directory.')
+        target = write_project_guide(root, project)
+        return {'ok': True, 'command': command, 'path': str(target)}
     elif command == 'assert-art':
         assert_script_lock(project, root)
         return {'allowed': True, 'script_hash': project['script_lock']['script_hash']}
@@ -2768,6 +3046,8 @@ def run(args):
     save(root, project)
     if command == 'lock-script':
         write_volume_readme(root, project)
+        if root:
+            write_project_guide(root, project)
     return {'ok': True, 'command': command, 'script_hash': digest(project['script'])}
 
 
@@ -2803,7 +3083,7 @@ def parser():
 
     for name in ('init', 'preflight', 'chapter', 'script-chapter', 'resolve-issue', 'confirm-source',
                  'mark-read', 'set-script', 'set-script-chapter', 'impact', 'check-script', 'check-adaptation',
-                 'check-stage-review', 'review', 'lock-script', 'assert-art', 'status'):
+                 'check-stage-review', 'review', 'lock-script', 'emit-guide', 'assert-art', 'status'):
         sub = subs.add_parser(name)
         sub.add_argument('--project', required=True)
         if name == 'init':

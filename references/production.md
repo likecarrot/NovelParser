@@ -4,12 +4,13 @@
 
 ## 交付形态
 
-一份锁定分镜由四部分组成，字段定义见 [schemas.md](schemas.md)：
+一份锁定分镜由五部分组成，字段定义见 [schemas.md](schemas.md)：
 
 1. `full-script.md`：人读的分镜剧本。卷结构、原文收尾、人物档案、页面计划，以及逐格的原文出处、镜头、空间、动作、表情、状态前后、道具与对白原文。
 2. `project.json`：机读工程数据。含完整 `script`、原文索引、审查记录与 `script_lock` 指纹。
 3. `scripts/chapters/<chapter_id>.json`：分章分镜，含 events、scenes、panels、pages、source_dispositions。
 4. `docs/adaptation/<chapter_id>.md`：每章原文到分镜的映射证据、格数依据与核查记录。
+5. `PROJECT_GUIDE.md`：书名目录下的交接说明。逐个说明产物作用、字段含义、推荐读取顺序与常见误区，并填入本卷实际统计。`lock-script` 会自动生成，`emit-guide` 可随时重生成。
 
 ## 单格必须写清什么
 
